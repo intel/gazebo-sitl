@@ -1,0 +1,3 @@
+[submodule "gzsitl/mavlink"]
+	path = modules/mavlink
+	url = https://github.com/mavlink/mavlink
