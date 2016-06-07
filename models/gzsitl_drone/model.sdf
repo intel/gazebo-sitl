@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="gzsitl_drone">
+    <include>
+      <uri>model://quadrotor</uri>
+    </include>
+    <!-- Attach the plugin to this model -->
+    <plugin name="gzsitl_drone_control" filename="libgzsitl_plugin.so"/>
+    <!-- Configuration of the model -->
+    <static>true</static>
+    <pose>0 0 0 0 0 0</pose>
+  </model>
+</sdf>

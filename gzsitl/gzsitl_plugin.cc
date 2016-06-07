@@ -617,20 +617,20 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_ON_GROUND:
     case ACTIVE_AIRBORNE: {
 
-        // Make sure the target still exists
-        if (!target) {
-            print_debug_state("Target not found.\n");
-            simstate = ERROR;
-            print_debug_state("state: ERROR\n");
-            return;
-        }
-
         // Get Target Position
         math::Pose curr_pose;
         math::Vector3 curr_vel;
         math::Vector3 curr_ang_vel;
         static math::Pose tpose = math::Pose(math::Pose::Zero);
-        math::Pose tpose_new = target->GetWorldPose();
+        math::Pose tpose_new = tpose;
+
+        // Make sure the target still exists
+        target = model->GetWorld()->GetModel(GZSITL_TARGET_MODEL_NAME);
+        if (target) {
+            tpose_new = target->GetWorldPose();
+        }
+
+        // Send Target if exists
         if (is_flying() && tpose_new != tpose) {
             tpose = tpose_new;
 
