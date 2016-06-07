@@ -146,6 +146,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     // Gazebo
     physics::ModelPtr model;
     physics::ModelPtr target;
+    std::string target_name;
     event::ConnectionPtr update_connection;
 };
 }

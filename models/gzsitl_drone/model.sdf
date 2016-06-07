@@ -5,7 +5,9 @@
       <uri>model://quadrotor</uri>
     </include>
     <!-- Attach the plugin to this model -->
-    <plugin name="gzsitl_drone_control" filename="libgzsitl_plugin.so"/>
+    <plugin name="gzsitl_drone_control" filename="libgzsitl_plugin.so">
+      <target_name>gzsitl_target</target_name>
+    </plugin>
     <!-- Configuration of the model -->
     <static>true</static>
     <pose>0 0 0 0 0 0</pose>
