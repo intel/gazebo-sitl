@@ -617,20 +617,31 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_ON_GROUND:
     case ACTIVE_AIRBORNE: {
 
-        // Make sure the target still exists
-        if (!target) {
-            print_debug_state("Target not found.\n");
-            simstate = ERROR;
-            print_debug_state("state: ERROR\n");
-            return;
-        }
-
         // Get Target Position
         math::Pose curr_pose;
         math::Vector3 curr_vel;
         math::Vector3 curr_ang_vel;
         static math::Pose tpose = math::Pose(math::Pose::Zero);
-        math::Pose tpose_new = target->GetWorldPose();
+        math::Pose tpose_new = tpose;
+
+
+        // Calculate pose according to new attitude and position
+        if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
+
+            // Set New Drone Pose in Gazebo
+            calculate_pose(&curr_pose, mavserver.get_svar_attitude(),
+                           mavserver.get_svar_local_pos_ned());
+            model->SetWorldPose(curr_pose);
+        }
+        
+        // Make sure the target still exists
+        target = model->GetWorld()->GetModel(target_name);
+        if (!target) {
+            return;
+        }
+
+        // Send Target if exists and if it has been moved
+        tpose_new = target->GetWorldPose();
         if (is_flying() && tpose_new != tpose) {
             tpose = tpose_new;
 
@@ -655,15 +666,6 @@ void GZSitlPlugin::OnUpdate()
                 mavserver.pose_to_waypoint_relative_alt(
                     global_coord.x, global_coord.y, global_coord.z,
                     pose_mavlocal.rot.GetYaw()));
-        }
-
-        // Calculate pose according to new attitude and position
-        if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
-
-            // Set New Drone Pose in Gazebo
-            calculate_pose(&curr_pose, mavserver.get_svar_attitude(),
-                           mavserver.get_svar_local_pos_ned());
-            model->SetWorldPose(curr_pose);
         }
 
         return;
