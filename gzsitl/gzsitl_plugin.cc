@@ -21,7 +21,6 @@
 // TODO: Set as .sdf plugin parameters
 #define DEBUG_STATE true
 #define DEBUG_MAVLINK false
-#define GZSITL_TARGET_MODEL_NAME "gzsitl_target"
 #define MAVPROXY_IP "127.0.0.1"
 #define MAVPROXY_PORT 14556
 #define LOCAL_PORT 14550
@@ -689,7 +688,8 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     model = m;
 
     // Also store the target pointer
-    target = model->GetWorld()->GetModel(GZSITL_TARGET_MODEL_NAME);
+    target_name = sdf->Get<std::string>("target_name");
+    target = model->GetWorld()->GetModel(target_name);
 
     // Run MavServer thread
     mavserver.run();
