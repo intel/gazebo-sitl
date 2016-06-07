@@ -84,7 +84,7 @@ MavServer::MavServer(short port)
 
 MavServer::~MavServer()
 {
-    send_recv_thread.join();
+    stop(); 
     close(sock);
 }
 
@@ -93,6 +93,11 @@ void MavServer::run()
     send_recv_thread_run = true;
     send_recv_thread = std::thread(&MavServer::send_recv, this);
     send_recv_thread.detach();
+}
+
+void MavServer::stop()
+{
+    send_recv_thread_run = false;
 }
 
 mavlink_mission_item_t
