@@ -529,6 +529,9 @@ void GZSitlPlugin::OnUpdate()
 {
     mavserver.queue_send_heartbeat_if_needed();
 
+    // Reset Physic States of the model
+    model->ResetPhysicsStates();
+
     // Execute according to simulation state
     switch (simstate) {
 

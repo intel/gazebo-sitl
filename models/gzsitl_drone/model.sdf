@@ -9,7 +9,7 @@
       <target_name>gzsitl_target</target_name>
     </plugin>
     <!-- Configuration of the model -->
-    <static>true</static>
+    <static>false</static>
     <pose>0 0 0 0 0 0</pose>
   </model>
 </sdf>
