@@ -192,19 +192,17 @@ void MavServer::queue_send_heartbeat_if_needed()
 
 void MavServer::queue_send_data(const uint8_t *data, int data_len)
 {
-
-    data_to_send_access_mtx.lock();
+    std::lock_guard<std::mutex> locker(data_to_send_access_mtx);
 
     int safe_data_len =
         std::min((int)data_len, (int)(BUFFER_LEN - data_to_send_len));
 
-    if (safe_data_len >= data_len) {
-        memcpy(&data_to_send[data_to_send_len], data,
-               safe_data_len * sizeof(*data));
-        data_to_send_len += safe_data_len;
-    }
+    if (safe_data_len < data_len)
+        return;
 
-    data_to_send_access_mtx.unlock();
+    memcpy(&data_to_send[data_to_send_len], data,
+        safe_data_len * sizeof(*data));
+    data_to_send_len += safe_data_len;
 }
 
 void MavServer::queue_send_cmd_long(mavlink_command_long_t cmd)
@@ -302,67 +300,51 @@ bool MavServer::queue_send_cmd_long_until_ack(int cmd, float p1, float p2,
 
 mavlink_attitude_t MavServer::get_svar_attitude()
 {
-    attitude_svar_access_mtx.lock();
-    mavlink_attitude_t attitude_copy = attitude;
+    std::lock_guard<std::mutex> locker(attitude_svar_access_mtx);
     is_new_attitude = false;
-    attitude_svar_access_mtx.unlock();
-    return attitude_copy;
+    return attitude;
 }
 
 mavlink_heartbeat_t MavServer::get_svar_heartbeat()
 {
-    svar_access_mtx.lock();
-    mavlink_heartbeat_t heartbeat_copy = heartbeat;
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     is_new_heartbeat = false;
-    svar_access_mtx.unlock();
-    return heartbeat_copy;
+    return heartbeat;
 }
 
 mavlink_command_ack_t MavServer::get_svar_command_ack()
 {
-    svar_access_mtx.lock();
-    mavlink_command_ack_t command_ack_copy = command_ack;
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     is_new_command_ack = false;
-    svar_access_mtx.unlock();
-    return command_ack_copy;
+    return command_ack;
 }
 
 mavlink_gps_raw_int_t MavServer::get_svar_gps_raw_int()
 {
-    svar_access_mtx.lock();
-    mavlink_gps_raw_int_t gps_raw_int_copy = gps_raw_int;
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     is_new_gps_raw_int = false;
-    svar_access_mtx.unlock();
-    return gps_raw_int_copy;
+    return gps_raw_int;
 }
 
 mavlink_home_position_t MavServer::get_svar_home_position()
 {
-    svar_access_mtx.lock();
-    mavlink_home_position_t home_position_copy = home_position;
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     is_new_home_position = false;
-    svar_access_mtx.unlock();
-    return home_position_copy;
+    return home_position;
 }
 
 mavlink_local_position_ned_t MavServer::get_svar_local_pos_ned()
 {
-
-    local_pos_ned_svar_access_mtx.lock();
-    mavlink_local_position_ned_t local_pos_int_copy = local_pos_ned;
+    std::lock_guard<std::mutex> locker(local_pos_ned_svar_access_mtx);
     is_new_local_pos_ned = false;
-    local_pos_ned_svar_access_mtx.unlock();
-    return local_pos_int_copy;
+    return local_pos_ned;
 }
 
 mavlink_global_position_int_t MavServer::get_svar_global_pos_int()
 {
-
-    svar_access_mtx.lock();
-    mavlink_global_position_int_t global_pos_int_copy = global_pos_int;
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     is_new_global_pos_int = false;
-    svar_access_mtx.unlock();
-    return global_pos_int_copy;
+    return global_pos_int;
 }
 
 void MavServer::send_recv()
@@ -375,15 +357,14 @@ void MavServer::send_recv()
 
 void MavServer::handle_send()
 {
-    data_to_send_access_mtx.lock();
+    std::lock_guard<std::mutex> locker(data_to_send_access_mtx);
 
-    if (data_to_send_len > 0) {
-        sendto(sock, (void *)data_to_send, data_to_send_len, 0,
-               (struct sockaddr *)&remote_addr, sizeof(struct sockaddr_in));
-        data_to_send_len = 0;
-    }
+    if (data_to_send_len <= 0)
+        return;
 
-    data_to_send_access_mtx.unlock();
+    sendto(sock, (void *)data_to_send, data_to_send_len, 0,
+        (struct sockaddr *)&remote_addr, sizeof(struct sockaddr_in));
+    data_to_send_len = 0;
 }
 
 void MavServer::handle_recv()
@@ -434,49 +415,54 @@ void MavServer::handle_message(const mavlink_message_t *msg)
 
     // High Priority Messages - with individual locks
     switch (msg->msgid) {
-    case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
-        local_pos_ned_svar_access_mtx.lock();
+    case MAVLINK_MSG_ID_LOCAL_POSITION_NED: {
+        std::lock_guard<std::mutex> locker(local_pos_ned_svar_access_mtx);
         mavlink_msg_local_position_ned_decode(msg, &local_pos_ned);
         is_new_local_pos_ned = true;
         print_debug_mav("locpos_msg_time = %d\n",
                         local_pos_ned.time_boot_ms - prev_time_local_pos);
-        local_pos_ned_svar_access_mtx.unlock();
         return;
-    case MAVLINK_MSG_ID_ATTITUDE:
+    }
+    case MAVLINK_MSG_ID_ATTITUDE: {
         static int attnum = 1;
         attnum++;
-        attitude_svar_access_mtx.lock();
+        std::lock_guard<std::mutex> locker_svar(attitude_svar_access_mtx);
         mavlink_msg_attitude_decode(msg, &attitude);
         is_new_attitude = true;
         print_debug_mav("att_msg_time = %d\n",
                         attitude.time_boot_ms - prev_time_att);
-        attitude_svar_access_mtx.unlock();
         return;
     }
 
     // Low Priority Messages - with global lock
-    svar_access_mtx.lock();
+    std::lock_guard<std::mutex> locker(svar_access_mtx);
     switch (msg->msgid) {
-    case MAVLINK_MSG_ID_HOME_POSITION:
+    case MAVLINK_MSG_ID_HOME_POSITION: {
         mavlink_msg_home_position_decode(msg, &home_position);
         is_new_home_position = true;
         break;
-    case MAVLINK_MSG_ID_COMMAND_ACK:
+    }
+    case MAVLINK_MSG_ID_COMMAND_ACK: {
         mavlink_msg_command_ack_decode(msg, &command_ack);
         is_new_command_ack = true;
         break;
-    case MAVLINK_MSG_ID_GPS_RAW_INT:
+    }
+    case MAVLINK_MSG_ID_GPS_RAW_INT: {
         mavlink_msg_gps_raw_int_decode(msg, &gps_raw_int);
         is_new_gps_raw_int = true;
         break;
-    case MAVLINK_MSG_ID_HEARTBEAT:
+    }
+    case MAVLINK_MSG_ID_HEARTBEAT: {
         mavlink_msg_heartbeat_decode(msg, &heartbeat);
         is_new_heartbeat = true;
         break;
-    case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
+    }
+    case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
         mavlink_msg_global_position_int_decode(msg, &global_pos_int);
         is_new_global_pos_int = true;
         break;
     }
-    svar_access_mtx.unlock();
+    }
+}
+
 }
