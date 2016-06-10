@@ -17,88 +17,10 @@
 #ifndef _GZSITL_PLUGIN_HH_
 #define _GZSITL_PLUGIN_HH_
 
-#include <thread>
-#include <mavlink.h>
-#include <sys/socket.h>
 #include <gazebo/common/common.hh>
 #include <gazebo/physics/physics.hh>
 
-class MavServer
-{
-  public:
-    MavServer(short port);
-    virtual ~MavServer();
-
-    // Helpers
-    void run();
-    void stop();
-    mavlink_mission_item_t
-    pose_to_waypoint_relative_alt(double x, double y, double z, double yaw);
-
-    // Vehicle Communication
-    bool is_ready();
-    int get_status();
-    bool set_mode_guided();
-    void queue_send_heartbeat_if_needed();
-    void queue_send_data(const uint8_t *data, int data_len);
-    void queue_send_cmd_long(mavlink_command_long_t mav_cmd);
-    void queue_send_waypoint(mavlink_mission_item_t mav_waypoint);
-    bool cmd_long_ack_recvd(int mav_cmd_id, int mav_result_expected);
-    bool queue_send_cmd_long_until_ack(int cmd, float p1, float p2,
-                                               float p3, float p4, float p5,
-                                               float p6, float p7, int timeout);
-
-    // State Variables
-    bool is_new_attitude = false;
-    bool is_new_heartbeat = false;
-    bool is_new_command_ack = false;
-    bool is_new_gps_raw_int = false;
-    bool is_new_local_pos_ned = false;
-    bool is_new_home_position = false;
-    bool is_new_global_pos_int = false;
-    mavlink_attitude_t get_svar_attitude();
-    mavlink_heartbeat_t get_svar_heartbeat();
-    mavlink_command_ack_t get_svar_command_ack();
-    mavlink_gps_raw_int_t get_svar_gps_raw_int();
-    mavlink_home_position_t get_svar_home_position();
-    mavlink_local_position_ned_t get_svar_local_pos_ned();
-    mavlink_global_position_int_t get_svar_global_pos_int();
-
-  private:
-    // Threading
-    bool send_recv_thread_run = false;
-    std::thread send_recv_thread;
-
-    std::mutex svar_access_mtx;
-    std::mutex data_to_send_access_mtx;
-    std::mutex attitude_svar_access_mtx;
-    std::mutex local_pos_ned_svar_access_mtx;
-
-    // Vehicle Communication
-    int sock = 0;
-    socklen_t fromlen = 0;
-    struct sockaddr_in local_addr;
-    struct sockaddr_in remote_addr;
-
-    int data_to_send_len = 0;
-    enum { BUFFER_LEN = 2041 };
-    uint8_t data_recv[BUFFER_LEN];
-    uint8_t data_to_send[BUFFER_LEN];
-
-    void send_recv();
-    void handle_send();
-    void handle_recv();
-    void handle_message(const mavlink_message_t *msg);
-
-    // State Variables
-    mavlink_attitude_t attitude = {0};
-    mavlink_heartbeat_t heartbeat = {0};
-    mavlink_command_ack_t command_ack = {0};
-    mavlink_gps_raw_int_t gps_raw_int = {0};
-    mavlink_home_position_t home_position = {0};
-    mavlink_local_position_ned_t local_pos_ned = {0};
-    mavlink_global_position_int_t global_pos_int = {0};
-};
+#include "mavserver.hh"
 
 namespace gazebo
 {
