@@ -75,7 +75,7 @@ class MavServer
 
     // Vehicle Communication
     int sock = 0;
-    socklen_t fromlen;
+    socklen_t fromlen = 0;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
 
@@ -129,7 +129,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     bool is_ground_pos_locked();
 
     // Coordinates
-    mavlink_global_position_int_t init_global_pos;
+    mavlink_global_position_int_t init_global_pos = {0};
     common::SphericalCoordinates global_pos_coord_system;
 
     mavlink_global_position_int_t
