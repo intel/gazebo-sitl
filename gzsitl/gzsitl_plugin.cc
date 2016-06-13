@@ -401,9 +401,11 @@ void MavServer::handle_send()
     data_to_send_access_mtx.lock();
 
     if (data_to_send_len > 0) {
-        sendto(sock, (void *)data_to_send, data_to_send_len, 0,
-               (struct sockaddr *)&remote_addr, sizeof(struct sockaddr_in));
-        data_to_send_len = 0;
+        if (sendto(sock, (void *)data_to_send, data_to_send_len, 0,
+                   (struct sockaddr *)&remote_addr,
+                   sizeof(struct sockaddr_in)) == data_to_send_len) {
+            data_to_send_len = 0;
+        }
     }
 
     data_to_send_access_mtx.unlock();
