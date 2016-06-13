@@ -7,13 +7,13 @@ if (NOT PYTHON)
 endif()
 
 # Generate Mavlink Messages
-if(NOT EXISTS ${CMAKE_SOURCE_DIR}/build/lib/)
+if(NOT EXISTS ${CMAKE_BINARY_DIR}/lib/)
     execute_process(
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/../modules/mavlink
             COMMAND
             ${PYTHON}
             -m pymavlink.tools.mavgen
-            -o ${CMAKE_SOURCE_DIR}/build/lib
+            -o ${CMAKE_BINARY_DIR}/lib
             --lang C
             ./message_definitions/v1.0/common.xml)
 endif()
@@ -22,8 +22,8 @@ endif()
 find_package(gazebo REQUIRED)
 include_directories(
     ${GAZEBO_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/build/lib/common
-    ${CMAKE_SOURCE_DIR}/build/lib)
+    ${CMAKE_BINARY_DIR}/lib/common
+    ${CMAKE_BINARY_DIR}/lib)
 link_directories(
     ${GAZEBO_LIBRARY_DIRS})
 
