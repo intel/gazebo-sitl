@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
+find_program(PYTHON python)
+
+if (NOT PYTHON)
+    message(SEND_ERROR "Python not found")
+endif()
+
 # Generate Mavlink Messages
 if(NOT EXISTS ${CMAKE_SOURCE_DIR}/build/lib/)
     execute_process(
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/../modules/mavlink
             COMMAND
-            python
+            ${PYTHON}
             -m pymavlink.tools.mavgen
             -o ${CMAKE_SOURCE_DIR}/build/lib
             --lang C
