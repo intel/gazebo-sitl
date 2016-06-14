@@ -21,7 +21,6 @@
 // TODO: Set as .sdf plugin parameters
 #define DEBUG_STATE true
 #define DEBUG_MAVLINK false
-#define GZSITL_TARGET_MODEL_NAME "gzsitl_target"
 #define MAVPROXY_IP "127.0.0.1"
 #define MAVPROXY_PORT 14556
 #define LOCAL_PORT 14550
@@ -84,7 +83,7 @@ MavServer::MavServer(short port)
 
 MavServer::~MavServer()
 {
-    send_recv_thread.join();
+    stop(); 
     close(sock);
 }
 
@@ -93,6 +92,11 @@ void MavServer::run()
     send_recv_thread_run = true;
     send_recv_thread = std::thread(&MavServer::send_recv, this);
     send_recv_thread.detach();
+}
+
+void MavServer::stop()
+{
+    send_recv_thread_run = false;
 }
 
 mavlink_mission_item_t
@@ -525,6 +529,9 @@ void GZSitlPlugin::OnUpdate()
 {
     mavserver.queue_send_heartbeat_if_needed();
 
+    // Reset Physic States of the model
+    model->ResetPhysicsStates();
+
     // Execute according to simulation state
     switch (simstate) {
 
@@ -614,20 +621,31 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_ON_GROUND:
     case ACTIVE_AIRBORNE: {
 
-        // Make sure the target still exists
-        if (!target) {
-            print_debug_state("Target not found.\n");
-            simstate = ERROR;
-            print_debug_state("state: ERROR\n");
-            return;
-        }
-
         // Get Target Position
         math::Pose curr_pose;
         math::Vector3 curr_vel;
         math::Vector3 curr_ang_vel;
         static math::Pose tpose = math::Pose(math::Pose::Zero);
-        math::Pose tpose_new = target->GetWorldPose();
+        math::Pose tpose_new = tpose;
+
+
+        // Calculate pose according to new attitude and position
+        if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
+
+            // Set New Drone Pose in Gazebo
+            calculate_pose(&curr_pose, mavserver.get_svar_attitude(),
+                           mavserver.get_svar_local_pos_ned());
+            model->SetWorldPose(curr_pose);
+        }
+        
+        // Make sure the target still exists
+        target = model->GetWorld()->GetModel(target_name);
+        if (!target) {
+            return;
+        }
+
+        // Send Target if exists and if it has been moved
+        tpose_new = target->GetWorldPose();
         if (is_flying() && tpose_new != tpose) {
             tpose = tpose_new;
 
@@ -654,15 +672,6 @@ void GZSitlPlugin::OnUpdate()
                     pose_mavlocal.rot.GetYaw()));
         }
 
-        // Calculate pose according to new attitude and position
-        if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
-
-            // Set New Drone Pose in Gazebo
-            calculate_pose(&curr_pose, mavserver.get_svar_attitude(),
-                           mavserver.get_svar_local_pos_ned());
-            model->SetWorldPose(curr_pose);
-        }
-
         return;
     }
 
@@ -684,7 +693,8 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     model = m;
 
     // Also store the target pointer
-    target = model->GetWorld()->GetModel(GZSITL_TARGET_MODEL_NAME);
+    target_name = sdf->Get<std::string>("target_name");
+    target = model->GetWorld()->GetModel(target_name);
 
     // Run MavServer thread
     mavserver.run();

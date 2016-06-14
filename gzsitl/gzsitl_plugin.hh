@@ -31,6 +31,7 @@ class MavServer
 
     // Helpers
     void run();
+    void stop();
     mavlink_mission_item_t
     pose_to_waypoint_relative_alt(double x, double y, double z, double yaw);
 
@@ -145,6 +146,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     // Gazebo
     physics::ModelPtr model;
     physics::ModelPtr target;
+    std::string target_name;
     event::ConnectionPtr update_connection;
 };
 }
