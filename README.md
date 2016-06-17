@@ -19,8 +19,8 @@ once with:
 2. Create a build folder and make using CMAKE as follows:
 
     ```
-    mkdir ./gzsitl/build
-    cd gzsitl/build
+    mkdir build
+    cd build
     cmake ..
     make
     cd -
@@ -61,7 +61,7 @@ once with:
 3. Set environment variables and open the Gazebo gzsitl_drone_target world file with the following command:
 
     ```
-    GAZEBO_PLUGIN_PATH=${GAZEBO_PLUGIN_PATH}:${PWD}/gzsitl/build GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:${PWD}/models gazebo ./world/gzsitl_drone_target.world --verbose
+    GAZEBO_PLUGIN_PATH=${GAZEBO_PLUGIN_PATH}:${PWD}/build GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:${PWD}/models gazebo ./world/gzsitl_drone_target.world --verbose
     ```
 
 ## Interaction ##
