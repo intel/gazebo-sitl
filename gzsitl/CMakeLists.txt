@@ -27,6 +27,12 @@ include_directories(
 link_directories(
     ${GAZEBO_LIBRARY_DIRS})
 
+if (INSTALL_PATH)
+    set(GZSITL_PLUGIN_PATH ${INSTALL_PATH})
+else()
+    set(GZSITL_PLUGIN_PATH ${GAZEBO_PLUGIN_PATH})
+endif()
+
 set(CUSTOM_COMPILE_FLAGS "-Wall")
 set(LDFLAGS "-z noexecstack -z relro -z now")
 set(CFLAGS "-fstack-protector-all -fPIE -fPIC -O2 -D_FORTIFY_SOURCE=2")
@@ -42,3 +48,5 @@ add_library(gzsitl_plugin SHARED
 target_link_libraries(gzsitl_plugin ${GAZEBO_libraries} ${LDFLAGS})
 
 # Set Gazebo Environment Variables
+
+install(TARGETS gzsitl_plugin DESTINATION ${GZSITL_PLUGIN_PATH})
