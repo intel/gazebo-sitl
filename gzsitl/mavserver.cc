@@ -433,6 +433,7 @@ void MavServer::handle_message(const mavlink_message_t *msg)
                         attitude.time_boot_ms - prev_time_att);
         return;
     }
+    }
 
     // Low Priority Messages - with global lock
     std::lock_guard<std::mutex> locker(svar_access_mtx);
@@ -463,6 +464,4 @@ void MavServer::handle_message(const mavlink_message_t *msg)
         break;
     }
     }
-}
-
 }
