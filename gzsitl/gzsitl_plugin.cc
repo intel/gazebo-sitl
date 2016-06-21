@@ -142,7 +142,7 @@ void GZSitlPlugin::OnUpdate()
                            mavserver.get_svar_local_pos_ned());
             model->SetWorldPose(curr_pose);
         }
-        
+
         // Make sure the target still exists
         target = model->GetWorld()->GetModel(target_name);
         if (!target) {
