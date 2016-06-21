@@ -56,7 +56,7 @@ MavServer::MavServer(short port)
 
 MavServer::~MavServer()
 {
-    stop(); 
+    stop();
     close(sock);
 }
 
