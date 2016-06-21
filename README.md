@@ -49,7 +49,7 @@ once with:
 2. In a third terminal, run Mavproxy:
 
     ```
-    mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14550 --out udp:127.0.0.1:14556 --streamrate -1
+    mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14556 --streamrate -1
     ```
 
     Load the Parameters on Mavproxy Prompt:
