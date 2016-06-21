@@ -48,10 +48,6 @@ MavServer::MavServer(short port)
         close(sock);
         exit(EXIT_FAILURE);
     }
-
-    remote_addr.sin_family = AF_INET;
-    remote_addr.sin_addr.s_addr = inet_addr(MAVPROXY_IP);
-    remote_addr.sin_port = htons(LOCAL_PORT);
 }
 
 MavServer::~MavServer()
