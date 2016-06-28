@@ -358,9 +358,13 @@ void MavServer::handle_send()
     if (data_to_send_len <= 0)
         return;
 
-    sendto(sock, (void *)data_to_send, data_to_send_len, 0,
+    ssize_t bytes_sent = sendto(sock, (void *)data_to_send, data_to_send_len, 0,
         (struct sockaddr *)&remote_addr, sizeof(struct sockaddr_in));
-    data_to_send_len = 0;
+
+    // Clear only if all bytes have been sent. Otherwise, retry on next call.
+    if (bytes_sent == data_to_send_len) {
+        data_to_send_len = 0;
+    }
 }
 
 void MavServer::handle_recv()
