@@ -247,7 +247,7 @@ bool GZSitlPlugin::is_ground_pos_locked()
 mavlink_global_position_int_t
 GZSitlPlugin::home_pos_to_global(mavlink_home_position_t home)
 {
-    mavlink_global_position_int_t global_pos;
+    mavlink_global_position_int_t global_pos = {0};
 
     global_pos.lat = home.latitude;
     global_pos.lon = home.longitude;
