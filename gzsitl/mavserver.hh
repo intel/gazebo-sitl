@@ -26,6 +26,9 @@ class MavServer
 {
   public:
     MavServer(short port);
+    MavServer & operator=(const MavServer&) = delete;
+    MavServer(const MavServer&) = delete;
+    MavServer() = delete;
     virtual ~MavServer();
 
     // Helpers
@@ -75,9 +78,9 @@ class MavServer
 
     // Vehicle Communication
     int sock = 0;
-    socklen_t fromlen;
-    struct sockaddr_in local_addr;
-    struct sockaddr_in remote_addr;
+    socklen_t fromlen = {0};
+    struct sockaddr_in local_addr = {0};
+    struct sockaddr_in remote_addr = {0};
 
     int data_to_send_len = 0;
     enum { BUFFER_LEN = 2041 };
