@@ -30,7 +30,6 @@ GZSitlPlugin::GZSitlPlugin()
 
 GZSitlPlugin::~GZSitlPlugin()
 {
-    event::Events::DisconnectWorldUpdateBegin(update_connection);
 }
 
 void GZSitlPlugin::OnUpdate()
