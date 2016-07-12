@@ -17,6 +17,10 @@
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
 
+#define TARGET_POSE_PUB_FREQ_HZ 50
+#define VEHICLE_POSE_PUB_FREQ_HZ 50
+#define SUBS_TARGET_POSE_SUB_MAX_RESPOND_TIME 1000
+
 using namespace gazebo;
 
 GZ_REGISTER_MODEL_PLUGIN(GZSitlPlugin)
@@ -130,8 +134,6 @@ void GZSitlPlugin::OnUpdate()
         math::Vector3 curr_vel;
         math::Vector3 curr_ang_vel;
         static math::Pose tpose = math::Pose(math::Pose::Zero);
-        math::Pose tpose_new = tpose;
-
 
         // Calculate pose according to new attitude and position
         if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
@@ -142,14 +144,32 @@ void GZSitlPlugin::OnUpdate()
             model->SetWorldPose(curr_pose);
         }
 
-        // Make sure the target still exists
-        target = model->GetWorld()->GetModel(target_name);
-        if (!target) {
+        // Publish current vehicle pose
+        math::Pose mpose_new = model->GetWorldPose();
+        this->vehicle_pose_pub->Publish(msgs::Convert(mpose_new.Ign()));
+
+        // Make sure the permanent target still exists to continue
+        perm_target = model->GetWorld()->GetModel(perm_target_name);
+        if (!perm_target) {
             return;
         }
 
+        // Publish current permanent target pose
+        math::Pose tpose_new = perm_target->GetWorldPose();
+        this->perm_target_pose_pub->Publish(msgs::Convert(tpose_new.Ign()));
+
+        // Check if target is being overridden by the substitute target
+        if (is_target_overridden()) {
+            tpose_new = get_subs_target_pose();
+        }
+
+        // Set substitute target position in Gazebo if exists
+        subs_target = model->GetWorld()->GetModel(subs_target_name);
+        if (subs_target) {
+            subs_target->SetWorldPose(tpose_new);
+        }
+
         // Send Target if exists and if it has been moved
-        tpose_new = target->GetWorldPose();
         if (is_flying() && tpose_new != tpose) {
             tpose = tpose_new;
 
@@ -196,9 +216,42 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     // Store the model pointer for convenience
     model = m;
 
-    // Also store the target pointer
-    target_name = sdf->Get<std::string>("target_name");
-    target = model->GetWorld()->GetModel(target_name);
+    // Get name for the permanent target
+    perm_target_name = sdf->Get<std::string>("perm_target_name");
+    perm_target = model->GetWorld()->GetModel(perm_target_name);
+
+    // Get name for the substitute target
+    subs_target_name = sdf->Get<std::string>("subs_target_name");
+
+    // Get topic names
+    if (sdf->HasElement("perm_target_topic_name")) {
+        perm_target_pub_topic_name =
+            sdf->Get<std::string>("perm_target_topic_name");
+    }
+    if (sdf->HasElement("subs_target_topic_name")) {
+        subs_target_sub_topic_name =
+            sdf->Get<std::string>("subs_target_topic_name");
+    }
+    if (sdf->HasElement("vehicle_topic_name")) {
+        vehicle_pub_topic_name = sdf->Get<std::string>("vehicle_topic_name");
+    }
+
+    // Setup Publishers
+    this->node = transport::NodePtr(new transport::Node());
+    this->node->Init(this->model->GetWorld()->GetName());
+
+    this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
+        "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
+        TARGET_POSE_PUB_FREQ_HZ);
+
+    this->vehicle_pose_pub = this->node->Advertise<msgs::Pose>(
+        "~/" + this->model->GetName() + "/" + vehicle_pub_topic_name, 1,
+        VEHICLE_POSE_PUB_FREQ_HZ);
+
+    // Setup Subscribers
+    this->subs_target_pose_sub =
+        node->Subscribe("~/" + std::string(subs_target_sub_topic_name),
+                        &GZSitlPlugin::on_subs_target_pose_recvd, this);
 
     // Run MavServer thread
     mavserver.run();
@@ -275,14 +328,44 @@ void GZSitlPlugin::set_global_pos_coord_system(
     global_pos_coord_system.SetLongitudeReference(ref_lon);
 }
 
-void GZSitlPlugin::calculate_pose(
-    math::Pose *pose, mavlink_attitude_t attitude,
-    mavlink_local_position_ned_t local_position)
+void GZSitlPlugin::calculate_pose(math::Pose *pose, mavlink_attitude_t attitude,
+                                  mavlink_local_position_ned_t local_position)
 {
-    pose->Set(local_position.x,
-              -local_position.y,
-              -local_position.z,
-              attitude.roll,
-              -attitude.pitch,
-              -attitude.yaw);
+    pose->Set(local_position.x, -local_position.y, -local_position.z,
+              attitude.roll, -attitude.pitch, -attitude.yaw);
+}
+
+void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
+{
+    // Coav Target Pose has been received
+    if (_msg->has_position() && _msg->has_orientation()) {
+        subs_target_pose_sub_recv_time = std::chrono::system_clock::now();
+        subs_target_pose_mtx.lock();
+        subs_target_pose.Set(gazebo::msgs::ConvertIgn(_msg->position()),
+                             gazebo::msgs::ConvertIgn(_msg->orientation()));
+        subs_target_pose_mtx.unlock();
+    }
+}
+
+math::Pose GZSitlPlugin::get_subs_target_pose()
+{
+    subs_target_pose_mtx.lock();
+    math::Pose pose_copy = subs_target_pose;
+    subs_target_pose_mtx.unlock();
+
+    return pose_copy;
+}
+
+bool GZSitlPlugin::is_target_overridden()
+{
+    using namespace std::chrono;
+
+    time_point<system_clock> curr_time = system_clock::now();
+
+    if (duration_cast<milliseconds>(curr_time - subs_target_pose_sub_recv_time)
+            .count() < SUBS_TARGET_POSE_SUB_MAX_RESPOND_TIME) {
+        return true;
+    }
+
+    return false;
 }
