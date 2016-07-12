@@ -19,8 +19,13 @@
 
 #include <gazebo/common/common.hh>
 #include <gazebo/physics/physics.hh>
+#include <gazebo/transport/transport.hh>
 
 #include "mavserver.hh"
+
+#define DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME "target_pose"
+#define DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME "coav/coav_target_pose"
+#define DEFAULT_VEHICLE_POSE_PUB_TOPIC_NAME "vehicle_pose"
 
 namespace gazebo
 {
@@ -62,14 +67,36 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     void calculate_pose(math::Pose *pose, mavlink_attitude_t attitude,
                         mavlink_local_position_ned_t local_position);
 
+    // Target Override
+    physics::ModelPtr subs_target;
+    std::string subs_target_name;
+    std::mutex subs_target_pose_mtx;
+    math::Pose subs_target_pose;
+    math::Pose get_subs_target_pose();
+    bool is_target_overridden();
+    std::chrono::time_point<std::chrono::system_clock>
+        subs_target_pose_sub_recv_time =
+            std::chrono::system_clock::from_time_t(0);
+
     // Mavlink
     MavServer mavserver;
 
     // Gazebo
     physics::ModelPtr model;
-    physics::ModelPtr target;
-    std::string target_name;
+    physics::ModelPtr perm_target;
+    std::string perm_target_name;
     event::ConnectionPtr update_connection;
+
+    // Topics
+    std::string perm_target_pub_topic_name = DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME;
+    std::string subs_target_sub_topic_name = DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME;
+    std::string vehicle_pub_topic_name = DEFAULT_VEHICLE_POSE_PUB_TOPIC_NAME;
+    transport::NodePtr node;
+    transport::PublisherPtr perm_target_pose_pub;
+    transport::PublisherPtr vehicle_pose_pub;
+    transport::SubscriberPtr subs_target_pose_sub;
+
+    void on_subs_target_pose_recvd(ConstPosePtr &_msg);
 };
 }
 
