@@ -14,12 +14,14 @@
 // limitations under the License.
 */
 
+#include <mutex>
+
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
 
-#define TARGET_POSE_PUB_FREQ_HZ 50
-#define VEHICLE_POSE_PUB_FREQ_HZ 50
-#define SUBS_TARGET_POSE_SUB_MAX_RESPOND_TIME 1000
+#define GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ 50
+#define GZSITL_VEHICLE_POSE_PUB_FREQ_HZ 50
+#define GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME 1000
 
 using namespace gazebo;
 
@@ -242,11 +244,11 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
     this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
-        TARGET_POSE_PUB_FREQ_HZ);
+        GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ);
 
     this->vehicle_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + vehicle_pub_topic_name, 1,
-        VEHICLE_POSE_PUB_FREQ_HZ);
+        GZSITL_VEHICLE_POSE_PUB_FREQ_HZ);
 
     // Setup Subscribers
     this->subs_target_pose_sub =
@@ -340,20 +342,17 @@ void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
     // Coav Target Pose has been received
     if (_msg->has_position() && _msg->has_orientation()) {
         subs_target_pose_sub_recv_time = std::chrono::system_clock::now();
-        subs_target_pose_mtx.lock();
+
+        std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
         subs_target_pose.Set(gazebo::msgs::ConvertIgn(_msg->position()),
                              gazebo::msgs::ConvertIgn(_msg->orientation()));
-        subs_target_pose_mtx.unlock();
     }
 }
 
 math::Pose GZSitlPlugin::get_subs_target_pose()
 {
-    subs_target_pose_mtx.lock();
-    math::Pose pose_copy = subs_target_pose;
-    subs_target_pose_mtx.unlock();
-
-    return pose_copy;
+    std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
+    return subs_target_pose;
 }
 
 bool GZSitlPlugin::is_target_overridden()
@@ -362,10 +361,7 @@ bool GZSitlPlugin::is_target_overridden()
 
     time_point<system_clock> curr_time = system_clock::now();
 
-    if (duration_cast<milliseconds>(curr_time - subs_target_pose_sub_recv_time)
-            .count() < SUBS_TARGET_POSE_SUB_MAX_RESPOND_TIME) {
-        return true;
-    }
-
-    return false;
+    return duration_cast<milliseconds>(curr_time -
+                                       subs_target_pose_sub_recv_time)
+               .count() < GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
 }
