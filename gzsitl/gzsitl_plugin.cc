@@ -22,6 +22,8 @@
 #define GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ 50
 #define GZSITL_VEHICLE_POSE_PUB_FREQ_HZ 50
 #define GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME 1000
+#define GZSITL_LOOKAT_TARG_ANG_LIMIT 30.0
+#define GZSITL_LOOKAT_ROT_SPEED_DEGPS 90.0
 
 using namespace gazebo;
 
@@ -169,6 +171,22 @@ void GZSitlPlugin::OnUpdate()
         subs_target = model->GetWorld()->GetModel(subs_target_name);
         if (subs_target) {
             subs_target->SetWorldPose(tpose_new);
+        }
+
+        // Check if current target position is on the field of view. If not,
+        // stop in the current position and rotate towards target before moving
+        // forward.
+        math::Pose rel_pose = tpose_new - mpose_new;
+
+        double targ_ang = atan2(rel_pose.pos.y, rel_pose.pos.x);
+        targ_ang *= 180.0 / M_PI;
+
+        if (fabs(targ_ang) > GZSITL_LOOKAT_TARG_ANG_LIMIT) {
+            mavserver.queue_send_cmd_long_until_ack(
+                MAV_CMD_CONDITION_YAW, fabs(targ_ang),
+                GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0,
+                0, 2000);
+            tpose = mpose_new;
         }
 
         // Send Target if exists and if it has been moved
