@@ -17,5 +17,5 @@ add_library(gzsitl_visflags_plugin SHARED gzsitl_visflags_plugin.cc)
 target_link_libraries(gzsitl_plugin ${GAZEBO_libraries} ${LDFLAGS})
 target_link_libraries(gzsitl_visflags_plugin ${GAZEBO_libraries} ${LDFLAGS})
 
-# Set Gazebo Environment Variables
-install(TARGETS gzsitl_plugin gzsitl_visflags_plugin DESTINATION ${GZSITL_PLUGIN_PATH})
+install(TARGETS gzsitl_plugin gzsitl_visflags_plugin
+        DESTINATION ${GZSITL_PLUGIN_PATH})
