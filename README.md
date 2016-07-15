@@ -7,7 +7,7 @@ A ROS-independent Gazebo plugin for Ardupilot's SITL.
     * MavProxy (https://github.com/Dronecode/MAVProxy)
     * Ardupilot (https://github.com/ArduPilot/ardupilot)
 
-## Build ##
+## Build and Install ##
 
 1. Make sure you have initialized and updated the Mavlink submodule at least
 once with:
@@ -16,13 +16,13 @@ once with:
     git submodule init
     git submodule update
     ```
-2. Create a build folder and make using CMAKE as follows:
+2. Create a build folder, make and install using CMAKE as follows:
 
     ```
     mkdir build
     cd build
     cmake ..
-    make
+    sudo make install
     cd -
     ```
 
@@ -58,10 +58,10 @@ once with:
     param load ./parameters/gzsitl.parm
     ```
 
-3. Set environment variables and open the Gazebo gzsitl_drone_target world file with the following command:
+3. Open the Gazebo gzsitl_drone_target world file with the following command:
 
     ```
-    GAZEBO_PLUGIN_PATH=${GAZEBO_PLUGIN_PATH}:${PWD}/build/gzsitl GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:${PWD}/models gazebo ./world/gzsitl_drone_target.world --verbose
+    gazebo ./world/gzsitl_drone_target.world --verbose
     ```
 
 ## Interaction ##
@@ -77,9 +77,8 @@ When Airborne, the vehicle follows the transparent sphere (target).
 ## Throubleshooting ##
 
 Gazebo might fail to open if the needed models or plugins are not found. If
-that happens, make sure the environment variable GAZEBO_PLUGIN_PATH is
-correctly pointing to the [build](#build) folder and that the environment
-variable GAZEBO_MODEL_PATH is pointing to the models folder. The Gazebo
---verbose terminal output is useful for determining wether a plugin or a models
-has not not been found.
+that happens, make sure the needed plugins have been successfully built and
+installed into your shared libraries directory and that all the needed models
+are present into ~/.gazebo/models. The Gazebo --verbose terminal output is
+useful for determining wether a plugin or a models has not not been found.
 
