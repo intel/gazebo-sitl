@@ -13,9 +13,9 @@
       <uri>model://ground_plane</uri>
     </include>
     <!-- Quadrotor model -->
-    <model name="gzsitl_drone">
+    <model name="gzsitl_quadcopter">
       <include>
-        <uri>model://gzsitl_drone</uri>
+        <uri>model://gzsitl_quadcopter</uri>
       </include>
       <pose>0 0 0 0 0 0</pose>
     </model>
