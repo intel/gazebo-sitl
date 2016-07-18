@@ -47,6 +47,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
         INIT_ON_GROUND,
         INIT_AIRBORNE,
         ACTIVE_AIRBORNE,
+        ACTIVE_ROTATING,
         ACTIVE_ON_GROUND,
         ERROR
     };
@@ -56,7 +57,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     bool is_flying();
     bool is_ground_pos_locked();
 
-    // Coordinates
+    // Vehicle Coordinates
     mavlink_global_position_int_t init_global_pos = {0};
     common::SphericalCoordinates global_pos_coord_system;
 
@@ -64,30 +65,33 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     home_pos_to_global(mavlink_home_position_t home);
     math::Pose coord_gzlocal_to_mavlocal(math::Pose gzpose);
     void set_global_pos_coord_system(mavlink_global_position_int_t position);
-    void calculate_pose(math::Pose *pose, mavlink_attitude_t attitude,
-                        mavlink_local_position_ned_t local_position);
+    math::Pose calculate_pose(mavlink_attitude_t attitude,
+                              mavlink_local_position_ned_t local_position);
 
-    // Target Override
+    // Target and Target Override
+    bool target_exists = false;
     physics::ModelPtr subs_target;
     std::string subs_target_name;
     std::mutex subs_target_pose_mtx;
     math::Pose subs_target_pose;
-    math::Pose get_subs_target_pose();
-    bool is_target_overridden();
     std::chrono::time_point<std::chrono::system_clock>
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
 
+    bool is_target_overridden();
+    math::Pose get_subs_target_pose();
+    void on_subs_target_pose_recvd(ConstPosePtr &_msg);
+
     // Mavlink
     MavServer mavserver;
 
-    // Gazebo
+    // Gazebo Simulation
     physics::ModelPtr model;
-    physics::ModelPtr perm_target;
     std::string perm_target_name;
+    physics::ModelPtr perm_target;
     event::ConnectionPtr update_connection;
 
-    // Topics
+    // Gazebo Communication
     std::string perm_target_pub_topic_name = DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME;
     std::string subs_target_sub_topic_name = DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME;
     std::string vehicle_pub_topic_name = DEFAULT_VEHICLE_POSE_PUB_TOPIC_NAME;
@@ -96,7 +100,6 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     transport::PublisherPtr vehicle_pose_pub;
     transport::SubscriberPtr subs_target_pose_sub;
 
-    void on_subs_target_pose_recvd(ConstPosePtr &_msg);
 };
 }
 
