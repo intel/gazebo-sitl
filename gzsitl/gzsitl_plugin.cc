@@ -47,6 +47,56 @@ void GZSitlPlugin::OnUpdate()
     // Reset Physic States of the model
     model->ResetPhysicsStates();
 
+    // Get Status of the vehicle
+    mavlink_heartbeat_t hb = mavserver.get_svar_heartbeat();
+    bool is_guided = hb.base_mode & MAV_MODE_FLAG_GUIDED_ENABLED;
+    bool is_armed = hb.base_mode & MAV_MODE_FLAG_SAFETY_ARMED;
+
+    // Get vehicle pose and update gazebo vehicle model
+    math::Pose curr_pose;
+    if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
+        curr_pose = calculate_pose(mavserver.get_svar_attitude(),
+                                   mavserver.get_svar_local_pos_ned());
+        model->SetWorldPose(curr_pose);
+    }
+
+    // Publish current gazebo vehicle pose
+    math::Pose vehicle_pose = model->GetWorldPose();
+    this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose.Ign()));
+
+    // Get pointer to the permanent target if exists
+    this->perm_target = model->GetWorld()->GetModel(perm_target_name);
+    if(this->perm_target) {
+        this->target_exists = true;
+    }else {
+        this->target_exists = false;
+    }
+
+    // Publish current permanent target pose if target exists
+    math::Pose target_pose;
+    if (this->target_exists) {
+        target_pose = perm_target->GetWorldPose();
+        this->perm_target_pose_pub->Publish(msgs::Convert(target_pose.Ign()));
+    }
+
+    // Check if target is being overridden by the substitute target
+    if (is_target_overridden()) {
+        target_pose = get_subs_target_pose();
+        this->target_exists = true;
+    }
+
+    // Set substitute target position in Gazebo if exists
+    this->subs_target = model->GetWorld()->GetModel(subs_target_name);
+    if (subs_target) {
+        subs_target->SetWorldPose(target_pose);
+    }
+
+    // Calculate target relative pose if exists
+    math::Pose target_pose_rel;
+    if(this->target_exists) {
+       target_pose_rel = target_pose - vehicle_pose;
+    }
+
     // Execute according to simulation state
     switch (simstate) {
     case INIT: {
@@ -87,10 +137,6 @@ void GZSitlPlugin::OnUpdate()
     }
 
     case INIT_ON_GROUND: {
-        // Get Status
-        mavlink_heartbeat_t hb = mavserver.get_svar_heartbeat();
-        bool is_guided = hb.base_mode & MAV_MODE_FLAG_GUIDED_ENABLED;
-        bool is_armed = hb.base_mode & MAV_MODE_FLAG_SAFETY_ARMED;
 
         // Wait until initial global position is achieved
         if (!is_ground_pos_locked()) {
@@ -130,72 +176,45 @@ void GZSitlPlugin::OnUpdate()
         return;
     }
 
-    case ACTIVE_ON_GROUND:
+    case ACTIVE_ON_GROUND: {
+
+        // Wait for take off
+        if (is_flying()) {
+            simstate = ACTIVE_AIRBORNE;
+            print_debug_state("state: ACTIVE_AIRBORNE\n");
+        }
+    }
+
     case ACTIVE_AIRBORNE: {
 
-        // Get Target Position
-        math::Pose curr_pose;
-        math::Vector3 curr_vel;
-        math::Vector3 curr_ang_vel;
-        static math::Pose tpose = math::Pose(math::Pose::Zero);
+        // Calculate the target azimuthal angle of the target in relation to
+        // the vehicle
+        double targ_ang = (180.0 / M_PI) *
+                          atan2(target_pose_rel.pos.y, target_pose_rel.pos.x);
 
-        // Calculate pose according to new attitude and position
-        if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
-
-            // Set New Drone Pose in Gazebo
-            calculate_pose(&curr_pose, mavserver.get_svar_attitude(),
-                           mavserver.get_svar_local_pos_ned());
-            model->SetWorldPose(curr_pose);
-        }
-
-        // Publish current vehicle pose
-        math::Pose mpose_new = model->GetWorldPose();
-        this->vehicle_pose_pub->Publish(msgs::Convert(mpose_new.Ign()));
-
-        // Make sure the permanent target still exists to continue
-        perm_target = model->GetWorld()->GetModel(perm_target_name);
-        if (!perm_target) {
-            return;
-        }
-
-        // Publish current permanent target pose
-        math::Pose tpose_new = perm_target->GetWorldPose();
-        this->perm_target_pose_pub->Publish(msgs::Convert(tpose_new.Ign()));
-
-        // Check if target is being overridden by the substitute target
-        if (is_target_overridden()) {
-            tpose_new = get_subs_target_pose();
-        }
-
-        // Set substitute target position in Gazebo if exists
-        subs_target = model->GetWorld()->GetModel(subs_target_name);
-        if (subs_target) {
-            subs_target->SetWorldPose(tpose_new);
-        }
-
-        // Check if current target position is on the field of view. If not,
-        // stop in the current position and rotate towards target before moving
-        // forward.
-        math::Pose rel_pose = tpose_new - mpose_new;
-
-        double targ_ang = atan2(rel_pose.pos.y, rel_pose.pos.x);
-        targ_ang *= 180.0 / M_PI;
-
+        // Check if the target is located within GZSITL_LOOKAT_TARG_ANG_LIMIT
+        // degrees from the vehicle heading. If not, stop in the current
+        // position and rotate towards target before moving forward.
         if (fabs(targ_ang) > GZSITL_LOOKAT_TARG_ANG_LIMIT) {
-            mavserver.queue_send_cmd_long_until_ack(
-                MAV_CMD_CONDITION_YAW, fabs(targ_ang),
-                GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0,
-                0, 2000);
-            tpose = mpose_new;
+
+            // Set current target position equal to vehicle position
+            target_pose = vehicle_pose;
+
+            // Change state on next iteration
+            simstate = ACTIVE_ROTATING;
+            print_debug_state("state: ACTIVE_ROTATING\n");
         }
+
+        // Store static target pose to avoid unnecessary repetition of requests
+        static math::Pose target_pose_prev = math::Pose::Zero;
 
         // Send Target if exists and if it has been moved
-        if (is_flying() && tpose_new != tpose) {
-            tpose = tpose_new;
+        if (is_flying() && target_pose != target_pose_prev) {
+            target_pose_prev = target_pose;
 
             // Convert from Gazebo Local Coordinates to Mav Local NED
             // Coordinates
-            math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(tpose_new);
+            math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(target_pose);
 
             // Convert from Mav Local NED Coordinates to Global Coordinates
             math::Vector3 global_coord =
@@ -217,6 +236,26 @@ void GZSitlPlugin::OnUpdate()
         }
 
         return;
+    }
+
+    case ACTIVE_ROTATING: {
+
+        // Calculate the target azimuthal angle of the target in relation to
+        // the vehicle
+        double targ_ang = (180.0 / M_PI) *
+                          atan2(target_pose_rel.pos.y, target_pose_rel.pos.x);
+
+        // Change state if vehicle is already pointing at the target
+        if (fabs(targ_ang) <= GZSITL_LOOKAT_TARG_ANG_LIMIT) {
+            simstate = ACTIVE_AIRBORNE;
+            print_debug_state("state: ACTIVE_AIRBORNE\n");
+        }
+
+        // Otherwise, continue to request the rotation
+        mavserver.queue_send_cmd_long_until_ack(
+            MAV_CMD_CONDITION_YAW, fabs(targ_ang),
+            GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0, 0,
+            2000);
     }
 
     case ERROR:
@@ -348,11 +387,12 @@ void GZSitlPlugin::set_global_pos_coord_system(
     global_pos_coord_system.SetLongitudeReference(ref_lon);
 }
 
-void GZSitlPlugin::calculate_pose(math::Pose *pose, mavlink_attitude_t attitude,
-                                  mavlink_local_position_ned_t local_position)
+math::Pose GZSitlPlugin::calculate_pose(mavlink_attitude_t attitude,
+                             mavlink_local_position_ned_t local_position)
 {
-    pose->Set(local_position.x, -local_position.y, -local_position.z,
-              attitude.roll, -attitude.pitch, -attitude.yaw);
+    math::Pose tpose(local_position.x, -local_position.y, -local_position.z,
+                     attitude.roll, -attitude.pitch, -attitude.yaw);
+    return tpose;
 }
 
 void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
