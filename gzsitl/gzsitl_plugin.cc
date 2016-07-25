@@ -19,11 +19,15 @@
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
 
-#define GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ 50
-#define GZSITL_VEHICLE_POSE_PUB_FREQ_HZ 50
-#define GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME 1000
-#define GZSITL_LOOKAT_TARG_ANG_LIMIT 30.0
-#define GZSITL_LOOKAT_ROT_SPEED_DEGPS 90.0
+
+namespace defaults
+{
+const uint16_t GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ = 50;
+const uint16_t GZSITL_VEHICLE_POSE_PUB_FREQ_HZ = 50;
+const uint16_t GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME = 1000;
+const double GZSITL_LOOKAT_TARG_ANG_LIMIT = 30.0;
+const double GZSITL_LOOKAT_ROT_SPEED_DEGPS = 90.0;
+}
 
 using namespace gazebo;
 
@@ -195,7 +199,7 @@ void GZSitlPlugin::OnUpdate()
         // Check if the target is located within GZSITL_LOOKAT_TARG_ANG_LIMIT
         // degrees from the vehicle heading. If not, stop in the current
         // position and rotate towards target before moving forward.
-        if (fabs(targ_ang) > GZSITL_LOOKAT_TARG_ANG_LIMIT) {
+        if (fabs(targ_ang) > defaults::GZSITL_LOOKAT_TARG_ANG_LIMIT) {
 
             // Set current target position equal to vehicle position
             target_pose = vehicle_pose;
@@ -246,7 +250,7 @@ void GZSitlPlugin::OnUpdate()
                           atan2(target_pose_rel.pos.y, target_pose_rel.pos.x);
 
         // Change state if vehicle is already pointing at the target
-        if (fabs(targ_ang) <= GZSITL_LOOKAT_TARG_ANG_LIMIT) {
+        if (fabs(targ_ang) <= defaults::GZSITL_LOOKAT_TARG_ANG_LIMIT) {
             simstate = ACTIVE_AIRBORNE;
             print_debug_state("state: ACTIVE_AIRBORNE\n");
         }
@@ -254,8 +258,8 @@ void GZSitlPlugin::OnUpdate()
         // Otherwise, continue to request the rotation
         mavserver.queue_send_cmd_long_until_ack(
             MAV_CMD_CONDITION_YAW, fabs(targ_ang),
-            GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0, 0,
-            2000);
+            defaults::GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1,
+            0, 0, 0, 2000);
     }
 
     case ERROR:
@@ -301,11 +305,11 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
     this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
-        GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ);
+        defaults::GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ);
 
     this->vehicle_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + vehicle_pub_topic_name, 1,
-        GZSITL_VEHICLE_POSE_PUB_FREQ_HZ);
+        defaults::GZSITL_VEHICLE_POSE_PUB_FREQ_HZ);
 
     // Setup Subscribers
     this->subs_target_pose_sub =
@@ -421,5 +425,5 @@ bool GZSitlPlugin::is_target_overridden()
 
     return duration_cast<milliseconds>(curr_time -
                                        subs_target_pose_sub_recv_time)
-               .count() < GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
+               .count() < defaults::GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
 }
