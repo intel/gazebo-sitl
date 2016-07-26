@@ -288,9 +288,6 @@ void GZSitlPlugin::OnUpdate()
 
         // Otherwise, continue to request the rotation
         this->mav->rotate(targ_ang);
-            // MAV_CMD_CONDITION_YAW, fabs(targ_ang),
-            // GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0, 0,
-            // 2000);
     }
 
     case ERROR:

@@ -14,8 +14,7 @@
 // limitations under the License.
 */
 
-#ifndef GZCOAVTARGET_VPLUGIN_H
-#define GZCOAVTARGET_VPLUGIN_H
+#pragma once
 
 #include <gazebo/common/Plugin.hh>
 #include <gazebo/common/common.hh>
@@ -32,6 +31,4 @@ class GZSitlVisibilityFlagsPlugin : public VisualPlugin
     rendering::VisualPtr visual;
 };
 }
-
-#endif
 

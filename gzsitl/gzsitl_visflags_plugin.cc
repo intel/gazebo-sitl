@@ -40,7 +40,8 @@ void GZSitlVisibilityFlagsPlugin::Load(rendering::VisualPtr _parent,
 
     // Find visibility flags
     bool vis_all = false;
-    if (plugin_params->HasElement("gz_visibility_all")) { vis_all = plugin_params->Get<bool>("gz_visibility_all");
+    if (plugin_params->HasElement("gz_visibility_all")) {
+        vis_all = plugin_params->Get<bool>("gz_visibility_all");
         params_found = true;
     }
 
@@ -68,3 +69,4 @@ void GZSitlVisibilityFlagsPlugin::Load(rendering::VisualPtr _parent,
     // Set visibility flags
     this->visual->SetVisibilityFlags(visflags);
 }
+
