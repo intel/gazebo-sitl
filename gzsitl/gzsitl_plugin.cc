@@ -15,9 +15,11 @@
 */
 
 #include <mutex>
+#include <thread>
 
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
+#include "mavlink_vehicles.hh"
 
 
 namespace defaults
@@ -35,39 +37,82 @@ inline double rad2deg(double x)
 }
 
 using namespace gazebo;
+using namespace mavlink_vehicles;
 
 GZ_REGISTER_MODEL_PLUGIN(GZSitlPlugin)
 
 GZSitlPlugin::GZSitlPlugin()
-    : global_pos_coord_system(common::SphericalCoordinates::EARTH_WGS84),
-      mavserver(MAVPROXY_PORT)
+    : global_pos_coord_system(common::SphericalCoordinates::EARTH_WGS84)
 {
-    model = NULL;
+    // Socket Initialization
+    this->sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock == -1) {
+        perror("error opening socket");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+    local_addr.sin_port = htons(MAVPROXY_PORT);
+
+    if (bind(sock, (struct sockaddr *)&local_addr, sizeof(struct sockaddr)) ==
+        -1) {
+        perror("error bind failed");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    // Attempt to make it non blocking
+    if (fcntl(sock, F_SETFL, O_NONBLOCK | FASYNC) < 0) {
+        perror("error setting socket as nonblocking");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    // Instantiate mav_vehicle
+    this->mav = std::make_shared<mav_vehicle>(sock);
+
+    // Initialize mav_vehicle update thread
+    this->send_recv_thread_run = true;
+    this->send_recv_thread = std::thread(&GZSitlPlugin::send_recv, this);
+    this->send_recv_thread.detach();
 }
 
 GZSitlPlugin::~GZSitlPlugin()
 {
+    this->send_recv_thread_run = false;
+    this->send_recv_thread.join();
 }
+
+void GZSitlPlugin::send_recv()
+{
+    while (true) {
+        this->mav->update();
+    }
+}
+
 
 void GZSitlPlugin::OnUpdate()
 {
-    mavserver.queue_send_heartbeat_if_needed();
-
     // Reset Physic States of the model
-    model->ResetPhysicsStates();
+    this->model->ResetPhysicsStates();
+
+    // Check if mavlink vehicle is initialized
+    if(!this->mav->started()) {
+        return;
+    }
 
     // Get Status of the vehicle
-    mavlink_heartbeat_t hb = mavserver.get_svar_heartbeat();
-    bool is_guided = hb.base_mode & MAV_MODE_FLAG_GUIDED_ENABLED;
-    bool is_armed = hb.base_mode & MAV_MODE_FLAG_SAFETY_ARMED;
+    status status = this->mav->get_status();
+    arm_status arm_stat = this->mav->get_arm_status();
+    mode mod = this->mav->get_mode();
 
     // Get vehicle pose and update gazebo vehicle model
     math::Pose curr_pose;
-    if (mavserver.is_new_local_pos_ned || mavserver.is_new_attitude) {
-        curr_pose = calculate_pose(mavserver.get_svar_attitude(),
-                                   mavserver.get_svar_local_pos_ned());
-        model->SetWorldPose(curr_pose);
-    }
+    curr_pose = calculate_pose(this->mav->get_attitude(),
+                               this->mav->get_local_position_ned());
+    model->SetWorldPose(curr_pose);
 
     // Publish current gazebo vehicle pose
     math::Pose vehicle_pose = model->GetWorldPose();
@@ -110,14 +155,10 @@ void GZSitlPlugin::OnUpdate()
     switch (simstate) {
     case INIT: {
 
-        if (!mavserver.is_ready()) {
-            return;
-        }
-
-        if (mavserver.get_status() == MAV_STATE_STANDBY) {
+        if (status == status::STANDBY) {
             simstate = INIT_ON_GROUND;
             print_debug_state("state: INIT_ON_GROUND\n");
-        } else if (mavserver.get_status() == MAV_STATE_ACTIVE) {
+        } else if (status == status::ACTIVE) {
             simstate = INIT_AIRBORNE;
             print_debug_state("state: INIT_AIRBORNE\n");
         }
@@ -126,31 +167,20 @@ void GZSitlPlugin::OnUpdate()
     }
 
     case INIT_AIRBORNE: {
-        // Check if home position has already been received
-        if (mavserver.is_new_home_position) {
-            mavlink_home_position_t home = mavserver.get_svar_home_position();
-            mavlink_global_position_int_t home_pos = home_pos_to_global(home);
-            set_global_pos_coord_system(home_pos);
-            simstate = ACTIVE_AIRBORNE;
-            print_debug_state("state: ACTIVE_AIRBORNE\n");
-            return;
-        }
 
-        // Home position is critical. Request home position every
-        // HOME_POSITION_REQUEST_INTERVAL_MS ms until it receiv
-        mavserver.queue_send_cmd_long_until_ack(
-            MAV_CMD_GET_HOME_POSITION, 0, 0, 0, 0, 0, 0, 0,
-            HOME_POSITION_REQUEST_INTERVAL_MS);
-
+        // Set home position
+        global_pos_int home_pos = this->mav->get_home_position_int();
+        set_global_pos_coord_system(home_pos);
+        simstate = ACTIVE_AIRBORNE;
+        print_debug_state("state: ACTIVE_AIRBORNE\n");
         return;
     }
 
     case INIT_ON_GROUND: {
 
-        // Wait until initial global position is achieved
-        if (!is_ground_pos_locked()) {
-            return;
-        }
+        // Set home position
+        global_pos_int home_pos = this->mav->get_home_position_int();
+        set_global_pos_coord_system(home_pos);
 
         // Initial takeoff if AUTOTAKEOFF and if not already on air
         if (!TAKEOFF_AUTO) {
@@ -159,22 +189,18 @@ void GZSitlPlugin::OnUpdate()
             return;
         }
 
-        if (!is_guided) {
-            mavserver.set_mode_guided();
+        if (mod != mode::GUIDED) {
+            this->mav->set_mode(mode::GUIDED);
             return;
         }
 
-        if (!is_armed) {
-            mavserver.queue_send_cmd_long_until_ack(
-                MAV_CMD_COMPONENT_ARM_DISARM, 1, 0, 0, 0, 0, 0, 0,
-                TAKEOFF_REQUEST_INTERVAL_MS);
+        if (arm_stat != arm_status::ARMED) {
+            this->mav->arm_throttle();
             return;
         }
 
-        if (!is_flying()) {
-            mavserver.queue_send_cmd_long_until_ack(
-                MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, TAKEOFF_INIT_ALT_M,
-                TAKEOFF_REQUEST_INTERVAL_MS);
+        if (status != status::ACTIVE) {
+            this->mav->takeoff();
             return;
         }
 
@@ -188,7 +214,7 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_ON_GROUND: {
 
         // Wait for take off
-        if (is_flying()) {
+        if (status == status::ACTIVE) {
             simstate = ACTIVE_AIRBORNE;
             print_debug_state("state: ACTIVE_AIRBORNE\n");
         }
@@ -220,7 +246,7 @@ void GZSitlPlugin::OnUpdate()
         static math::Pose target_pose_prev = math::Pose::Zero;
 
         // Send Target if exists and if it has been moved
-        if (is_flying() && target_pose != target_pose_prev) {
+        if (target_pose != target_pose_prev) {
             target_pose_prev = target_pose;
 
             // Convert from Gazebo Local Coordinates to Mav Local NED
@@ -240,10 +266,8 @@ void GZSitlPlugin::OnUpdate()
                              global_pos_coord_system.GetElevationReference();
 
             // Send target coordinates through mavlink
-            mavserver.queue_send_waypoint(
-                mavserver.pose_to_waypoint_relative_alt(
-                    global_coord.x, global_coord.y, global_coord.z,
-                    pose_mavlocal.rot.GetYaw()));
+            this->mav->goto_waypoint(global_coord.x, global_coord.y,
+                                     global_coord.z);
         }
 
         return;
@@ -263,12 +287,10 @@ void GZSitlPlugin::OnUpdate()
         }
 
         // Otherwise, continue to request the rotation
-        mavserver.queue_send_cmd_long_until_ack(
-            MAV_CMD_CONDITION_YAW, fabs(targ_ang),
-            defaults::GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1,
-            0, 0, 0, COND_YAW_REQUEST_INTERVAL_MS);
-
-        return;
+        this->mav->rotate(targ_ang);
+            // MAV_CMD_CONDITION_YAW, fabs(targ_ang),
+            // GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1, 0, 0, 0,
+            // 2000);
     }
 
     case ERROR:
@@ -325,9 +347,6 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         node->Subscribe("~/" + std::string(subs_target_sub_topic_name),
                         &GZSitlPlugin::on_subs_target_pose_recvd, this);
 
-    // Run MavServer thread
-    mavserver.run();
-
     // Set initial simulation parameters
     printf("init\n");
     simstate = INIT;
@@ -338,48 +357,6 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         boost::bind(&GZSitlPlugin::OnUpdate, this));
 }
 
-bool GZSitlPlugin::is_flying()
-{
-    mavlink_heartbeat_t status = mavserver.get_svar_heartbeat();
-    return status.system_status == MAV_STATE_ACTIVE;
-}
-
-bool GZSitlPlugin::is_ground_pos_locked()
-{
-    static int n = 0;
-
-    // If vehicle is not airborne, receive Initial Position at least
-    // INIT_POS_NUMSAMPLES times
-    if (n < INIT_POS_NUMSAMPLES) {
-        if (mavserver.is_new_global_pos_int && mavserver.is_ready()) {
-            n++;
-        }
-        return false;
-    }
-
-    if (n == INIT_POS_NUMSAMPLES) {
-        init_global_pos = mavserver.get_svar_global_pos_int();
-
-        set_global_pos_coord_system(init_global_pos);
-
-        n = INIT_POS_NUMSAMPLES + 1;
-    }
-
-    return true;
-}
-
-mavlink_global_position_int_t
-GZSitlPlugin::home_pos_to_global(mavlink_home_position_t home)
-{
-    mavlink_global_position_int_t global_pos = {0};
-
-    global_pos.lat = home.latitude;
-    global_pos.lon = home.longitude;
-    global_pos.alt = home.altitude;
-
-    return global_pos;
-}
-
 math::Pose GZSitlPlugin::coord_gzlocal_to_mavlocal(math::Pose gzpose)
 {
     return math::Pose(gzpose.pos.x, -gzpose.pos.y, -gzpose.pos.z,
@@ -388,7 +365,7 @@ math::Pose GZSitlPlugin::coord_gzlocal_to_mavlocal(math::Pose gzpose)
 }
 
 void GZSitlPlugin::set_global_pos_coord_system(
-    mavlink_global_position_int_t position)
+    global_pos_int position)
 {
     ignition::math::Angle ref_lat =
         ignition::math::Angle(((double)position.lat / 1E7) * (M_PI / 180.0));
@@ -400,13 +377,12 @@ void GZSitlPlugin::set_global_pos_coord_system(
     global_pos_coord_system.SetLongitudeReference(ref_lon);
 }
 
-math::Pose GZSitlPlugin::calculate_pose(mavlink_attitude_t attitude,
-                             mavlink_local_position_ned_t local_position)
+math::Pose GZSitlPlugin::calculate_pose(attitude attitude,
+                                        local_pos local_position)
 {
-    // Extract pose from mavlink_attitude message converting from NED to ENU
-    // coordinates.
+    // Convert from NED (North, East, Down) to ENU (East, North Up)
     return math::Pose(local_position.x, -local_position.y, -local_position.z,
-                     attitude.roll, -attitude.pitch, -attitude.yaw);
+                      attitude.roll, -attitude.pitch, -attitude.yaw);
 }
 
 void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
