@@ -261,8 +261,7 @@ void GZSitlPlugin::OnUpdate()
 
         // Convert from Global Coordinates to Global Coordinates with
         // Relative Alt
-        global_coord.z =
-            global_coord.z - global_pos_coord_system.GetElevationReference();
+        global_coord.z -= global_pos_coord_system.GetElevationReference();
 
         // Send target coordinates through mavlink
         this->mav->goto_waypoint(global_coord.x, global_coord.y,
