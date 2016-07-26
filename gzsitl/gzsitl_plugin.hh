@@ -14,8 +14,7 @@
 // limitations under the License.
 */
 
-#ifndef _GZSITL_PLUGIN_HH_
-#define _GZSITL_PLUGIN_HH_
+#pragma once
 
 #include <thread>
 #include <gazebo/common/common.hh>
@@ -101,8 +100,6 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     transport::PublisherPtr perm_target_pose_pub;
     transport::PublisherPtr vehicle_pose_pub;
     transport::SubscriberPtr subs_target_pose_sub;
-
 };
 }
 
-#endif
