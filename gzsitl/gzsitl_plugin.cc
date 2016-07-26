@@ -120,11 +120,7 @@ void GZSitlPlugin::OnUpdate()
 
     // Get pointer to the permanent target if exists
     this->perm_target = model->GetWorld()->GetModel(perm_target_name);
-    if (this->perm_target) {
-        this->target_exists = true;
-    } else {
-        this->target_exists = false;
-    }
+    this->target_exists = (bool)this->perm_target;
 
     // Publish current permanent target pose if target exists
     math::Pose target_pose;
@@ -146,9 +142,9 @@ void GZSitlPlugin::OnUpdate()
     }
 
     // Calculate target relative pose if exists
-    math::Pose target_pose_rel;
+    math::Pose rel_target_pose;
     if (this->target_exists) {
-        target_pose_rel = target_pose - vehicle_pose;
+        rel_target_pose = target_pose - vehicle_pose;
     }
 
     // Execute according to simulation state
@@ -163,7 +159,7 @@ void GZSitlPlugin::OnUpdate()
             print_debug_state("state: INIT_AIRBORNE\n");
         }
 
-        return;
+        break;
     }
 
     case INIT_AIRBORNE: {
@@ -173,7 +169,8 @@ void GZSitlPlugin::OnUpdate()
         set_global_pos_coord_system(home_pos);
         simstate = ACTIVE_AIRBORNE;
         print_debug_state("state: ACTIVE_AIRBORNE\n");
-        return;
+
+        break;
     }
 
     case INIT_ON_GROUND: {
@@ -186,29 +183,29 @@ void GZSitlPlugin::OnUpdate()
         if (!TAKEOFF_AUTO) {
             simstate = ACTIVE_ON_GROUND;
             print_debug_state("state: ACTIVE_ON_GROUND\n");
-            return;
+            break;
         }
 
         if (mod != mode::GUIDED) {
             this->mav->set_mode(mode::GUIDED);
-            return;
+            break;
         }
 
         if (arm_stat != arm_status::ARMED) {
             this->mav->arm_throttle();
-            return;
+            break;
         }
 
         if (status != status::ACTIVE) {
             this->mav->takeoff();
-            return;
+            break;
         }
 
         print_debug_state("Takeoff Sucessfull.\n");
         simstate = ACTIVE_AIRBORNE;
         print_debug_state("state: ACTIVE_AIRBORNE\n");
 
-        return;
+        break;
     }
 
     case ACTIVE_ON_GROUND: {
@@ -219,7 +216,7 @@ void GZSitlPlugin::OnUpdate()
             print_debug_state("state: ACTIVE_AIRBORNE\n");
         }
 
-        return;
+        break;
     }
 
     case ACTIVE_AIRBORNE: {
@@ -227,7 +224,7 @@ void GZSitlPlugin::OnUpdate()
         // Calculate the target azimuthal angle of the target in relation to
         // the vehicle
         double targ_ang =
-            rad2deg(atan2(target_pose_rel.pos.y, target_pose_rel.pos.x));
+            rad2deg(atan2(rel_target_pose.pos.y, rel_target_pose.pos.x));
 
         // Check if the target is located within GZSITL_LOOKAT_TARG_ANG_LIMIT
         // degrees from the vehicle heading. If not, stop in the current
@@ -245,32 +242,32 @@ void GZSitlPlugin::OnUpdate()
         // Store static target pose to avoid unnecessary repetition of requests
         static math::Pose target_pose_prev = math::Pose::Zero;
 
-        // Send Target if exists and if it has been moved
-        if (target_pose != target_pose_prev) {
-            target_pose_prev = target_pose;
-
-            // Convert from Gazebo Local Coordinates to Mav Local NED
-            // Coordinates
-            math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(target_pose);
-
-            // Convert from Mav Local NED Coordinates to Global Coordinates
-            math::Vector3 global_coord =
-                global_pos_coord_system.SphericalFromLocal(
-                    ignition::math::Vector3d(-pose_mavlocal.pos.y,
-                                             -pose_mavlocal.pos.x,
-                                             -pose_mavlocal.pos.z));
-
-            // Convert from Global Coordinates to Global Coordinates with
-            // Relative Alt
-            global_coord.z = global_coord.z -
-                             global_pos_coord_system.GetElevationReference();
-
-            // Send target coordinates through mavlink
-            this->mav->goto_waypoint(global_coord.x, global_coord.y,
-                                     global_coord.z);
+        // Do not send target pose if it hasn't changed
+        if (target_pose == target_pose_prev) {
+            break;
         }
 
-        return;
+        // Send target pose to the vehicle if it has changed
+        target_pose_prev = target_pose;
+
+        // Convert from Gazebo Local Coordinates to Mav Local NED
+        // Coordinates
+        math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(target_pose);
+
+        // Convert from Mav Local NED Coordinates to Global Coordinates
+        math::Vector3 global_coord = global_pos_coord_system.SphericalFromLocal(
+            ignition::math::Vector3d(-pose_mavlocal.pos.y, -pose_mavlocal.pos.x,
+                                     -pose_mavlocal.pos.z));
+
+        // Convert from Global Coordinates to Global Coordinates with
+        // Relative Alt
+        global_coord.z =
+            global_coord.z - global_pos_coord_system.GetElevationReference();
+
+        // Send target coordinates through mavlink
+        this->mav->goto_waypoint(global_coord.x, global_coord.y,
+                                 global_coord.z);
+        break;
     }
 
     case ACTIVE_ROTATING: {
@@ -278,7 +275,7 @@ void GZSitlPlugin::OnUpdate()
         // Calculate the target azimuthal angle of the target in relation to
         // the vehicle
         double targ_ang =
-            rad2deg(atan2(target_pose_rel.pos.y, target_pose_rel.pos.x));
+            rad2deg(atan2(rel_target_pose.pos.y, rel_target_pose.pos.x));
 
         // Change state if vehicle is already pointing at the target
         if (fabs(targ_ang) <= defaults::GZSITL_LOOKAT_TARG_ANG_LIMIT) {
@@ -288,6 +285,8 @@ void GZSitlPlugin::OnUpdate()
 
         // Otherwise, continue to request the rotation
         this->mav->rotate(targ_ang);
+
+        break;
     }
 
     case ERROR:
@@ -410,3 +409,4 @@ bool GZSitlPlugin::is_target_overridden()
                                        subs_target_pose_sub_recv_time)
                .count() < defaults::GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
 }
+
