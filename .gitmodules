@@ -1,3 +1,4 @@
-[submodule "gzsitl/mavlink"]
-	path = modules/mavlink
-	url = https://github.com/mavlink/mavlink
+[submodule "modules/mavlink_vehicles"]
+	path = modules/mavlink_vehicles
+	url = git://git-amr-4.devtools.intel.com/vision-mavserver.git
+    branch = development
