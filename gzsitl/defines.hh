@@ -14,8 +14,7 @@
 // limitations under the License.
 */
 
-#ifndef __DEFINITIONS_HH__
-#define __DEFINITIONS_HH__
+#pragma once
 
 // TODO: Set as .sdf plugin parameters
 #define GZSITL_TARGET_MODEL_NAME "gzsitl_target"
@@ -47,4 +46,3 @@
 #define print_debug_state(...) ;
 #endif
 
-#endif
