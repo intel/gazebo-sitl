@@ -29,6 +29,11 @@ const double GZSITL_LOOKAT_TARG_ANG_LIMIT = 30.0;
 const double GZSITL_LOOKAT_ROT_SPEED_DEGPS = 90.0;
 }
 
+inline double rad2deg(double x)
+{
+    return (180.0 / M_PI) * x;
+}
+
 using namespace gazebo;
 
 GZ_REGISTER_MODEL_PLUGIN(GZSitlPlugin)
@@ -70,9 +75,9 @@ void GZSitlPlugin::OnUpdate()
 
     // Get pointer to the permanent target if exists
     this->perm_target = model->GetWorld()->GetModel(perm_target_name);
-    if(this->perm_target) {
+    if (this->perm_target) {
         this->target_exists = true;
-    }else {
+    } else {
         this->target_exists = false;
     }
 
@@ -91,14 +96,14 @@ void GZSitlPlugin::OnUpdate()
 
     // Set substitute target position in Gazebo if exists
     this->subs_target = model->GetWorld()->GetModel(subs_target_name);
-    if (subs_target) {
-        subs_target->SetWorldPose(target_pose);
+    if (this->subs_target) {
+        this->subs_target->SetWorldPose(target_pose);
     }
 
     // Calculate target relative pose if exists
     math::Pose target_pose_rel;
-    if(this->target_exists) {
-       target_pose_rel = target_pose - vehicle_pose;
+    if (this->target_exists) {
+        target_pose_rel = target_pose - vehicle_pose;
     }
 
     // Execute according to simulation state
@@ -193,8 +198,8 @@ void GZSitlPlugin::OnUpdate()
 
         // Calculate the target azimuthal angle of the target in relation to
         // the vehicle
-        double targ_ang = (180.0 / M_PI) *
-                          atan2(target_pose_rel.pos.y, target_pose_rel.pos.x);
+        double targ_ang =
+            rad2deg(atan2(target_pose_rel.pos.y, target_pose_rel.pos.x));
 
         // Check if the target is located within GZSITL_LOOKAT_TARG_ANG_LIMIT
         // degrees from the vehicle heading. If not, stop in the current
@@ -246,8 +251,8 @@ void GZSitlPlugin::OnUpdate()
 
         // Calculate the target azimuthal angle of the target in relation to
         // the vehicle
-        double targ_ang = (180.0 / M_PI) *
-                          atan2(target_pose_rel.pos.y, target_pose_rel.pos.x);
+        double targ_ang =
+            rad2deg(atan2(target_pose_rel.pos.y, target_pose_rel.pos.x));
 
         // Change state if vehicle is already pointing at the target
         if (fabs(targ_ang) <= defaults::GZSITL_LOOKAT_TARG_ANG_LIMIT) {
@@ -259,7 +264,7 @@ void GZSitlPlugin::OnUpdate()
         mavserver.queue_send_cmd_long_until_ack(
             MAV_CMD_CONDITION_YAW, fabs(targ_ang),
             defaults::GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1,
-            0, 0, 0, 2000);
+            0, 0, 0, COND_YAW_REQUEST_INTERVAL_MS);
     }
 
     case ERROR:
@@ -394,9 +399,10 @@ void GZSitlPlugin::set_global_pos_coord_system(
 math::Pose GZSitlPlugin::calculate_pose(mavlink_attitude_t attitude,
                              mavlink_local_position_ned_t local_position)
 {
-    math::Pose tpose(local_position.x, -local_position.y, -local_position.z,
+    // Extract pose from mavlink_attitude message converting from NED to ENU
+    // coordinates.
+    return math::Pose(local_position.x, -local_position.y, -local_position.z,
                      attitude.roll, -attitude.pitch, -attitude.yaw);
-    return tpose;
 }
 
 void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
