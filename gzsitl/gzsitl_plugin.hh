@@ -71,6 +71,9 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
 
+    // Rotation
+    bool is_rotating = false;
+
     bool is_target_overridden();
     math::Pose get_subs_target_pose();
     void on_subs_target_pose_recvd(ConstPosePtr &_msg);
