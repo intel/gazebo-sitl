@@ -3,6 +3,7 @@
   <model name="gzsitl_quadcopter">
     <include>
       <uri>model://quadrotor</uri>
+      <pose>0 0 0 0 0 1.570796</pose>
     </include>
     <!-- Attach the plugin to this model -->
     <plugin name="gzsitl_drone_control" filename="libgzsitl_plugin.so">
