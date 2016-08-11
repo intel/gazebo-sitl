@@ -14,14 +14,14 @@
 // limitations under the License.
 */
 
-#ifndef _GZSITL_PLUGIN_HH_
-#define _GZSITL_PLUGIN_HH_
+#pragma once
 
+#include <thread>
 #include <gazebo/common/common.hh>
 #include <gazebo/physics/physics.hh>
 #include <gazebo/transport/transport.hh>
 
-#include "mavserver.hh"
+#include "mavlink_vehicles.hh"
 
 #define DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME "target_pose"
 #define DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME "coav/coav_target_pose"
@@ -53,20 +53,13 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     };
     sim_state simstate = INIT;
 
-    // Vehicle Status
-    bool is_flying();
-    bool is_ground_pos_locked();
-
     // Vehicle Coordinates
-    mavlink_global_position_int_t init_global_pos = {0};
     common::SphericalCoordinates global_pos_coord_system;
 
-    mavlink_global_position_int_t
-    home_pos_to_global(mavlink_home_position_t home);
     math::Pose coord_gzlocal_to_mavlocal(math::Pose gzpose);
-    void set_global_pos_coord_system(mavlink_global_position_int_t position);
-    math::Pose calculate_pose(mavlink_attitude_t attitude,
-                              mavlink_local_position_ned_t local_position);
+    void set_global_pos_coord_system(mavlink_vehicles::global_pos_int position);
+    math::Pose calculate_pose(mavlink_vehicles::attitude attitude,
+                              mavlink_vehicles::local_pos local_position);
 
     // Target and Target Override
     bool target_exists = false;
@@ -78,12 +71,23 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
 
+    // Rotation
+    bool is_rotating = false;
+
     bool is_target_overridden();
     math::Pose get_subs_target_pose();
     void on_subs_target_pose_recvd(ConstPosePtr &_msg);
 
     // Mavlink
-    MavServer mavserver;
+    std::shared_ptr<mavlink_vehicles::mav_vehicle> mav;
+    int sock = 0;
+    socklen_t fromlen = {0};
+    struct sockaddr_in local_addr = {0};
+    struct sockaddr_in remote_addr = {0};
+    std::thread send_recv_thread;
+    bool send_recv_thread_run = false;
+
+    void send_recv();
 
     // Gazebo Simulation
     physics::ModelPtr model;
@@ -99,8 +103,6 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     transport::PublisherPtr perm_target_pose_pub;
     transport::PublisherPtr vehicle_pose_pub;
     transport::SubscriberPtr subs_target_pose_sub;
-
 };
 }
 
-#endif
