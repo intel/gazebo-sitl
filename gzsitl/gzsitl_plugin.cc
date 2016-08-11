@@ -101,7 +101,7 @@ void GZSitlPlugin::OnUpdate()
     this->model->ResetPhysicsStates();
 
     // Check if mavlink vehicle is initialized
-    if(!this->mav->started()) {
+    if(!this->mav->is_ready()) {
         return;
     }
 
@@ -325,7 +325,7 @@ void GZSitlPlugin::OnUpdate()
         }
 
         // Otherwise, continue to request the rotation
-        if(!this->mav->is_rotating()) {
+        if(!this->mav->is_rotation_active()) {
             this->mav->rotate(targ_ang);
         }
 
@@ -398,7 +398,7 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
 gazebo::math::Pose GZSitlPlugin::coord_gzlocal_to_mavlocal(gazebo::math::Pose gzpose)
 {
-    return gazebo::math::Pose(gzpose.pos.x, -gzpose.pos.y, -gzpose.pos.z,
+    return gazebo::math::Pose(gzpose.pos.y, gzpose.pos.x, -gzpose.pos.z,
                       gzpose.rot.GetRoll(), -gzpose.rot.GetPitch(),
                       -gzpose.rot.GetYaw());
 }
@@ -417,11 +417,12 @@ void GZSitlPlugin::set_global_pos_coord_system(
 }
 
 gazebo::math::Pose GZSitlPlugin::calculate_pose(attitude attitude,
-                                        local_pos local_position)
+                                                local_pos local_position)
 {
     // Convert from NED (North, East, Down) to ENU (East, North Up)
-    return gazebo::math::Pose(local_position.x, -local_position.y, -local_position.z,
-                      attitude.roll, -attitude.pitch, -attitude.yaw);
+    return gazebo::math::Pose(local_position.y, local_position.x,
+                              -local_position.z, attitude.pitch, attitude.roll,
+                              -attitude.yaw);
 }
 
 void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
