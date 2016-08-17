@@ -258,10 +258,10 @@ void GZSitlPlugin::OnUpdate()
             // Change state if needed on next iteration
             if (target_distance > defaults::GZSITL_MIN_ROT_DIST_M) {
 
-                // Set current target position equal to vehicle position
-                target_pose = vehicle_pose;
-
+                // Wait for rotation end
                 simstate = ACTIVE_ROTATING;
+                this->is_braking = false;
+                this->is_rotating = false;
                 print_debug_state("state: ACTIVE_ROTATING\n");
             }
         }
@@ -282,7 +282,6 @@ void GZSitlPlugin::OnUpdate()
 
         // Check if the the vehicle is following the main mission or if it is
         // taking a detour. Rotation is considered a detour.
-        // TODO: Check if global_coord.z is relative or not
         if (is_target_overridden()) {
             this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
                                             global_coord.z);
@@ -299,33 +298,40 @@ void GZSitlPlugin::OnUpdate()
         // Calculate the target azimuthal angle of the target in relation to
         // the vehicle
         double targ_ang =
-            rad2deg(atan2(-rel_target_pose.pos.x, rel_target_pose.pos.x));
+            rad2deg(atan2(-rel_target_pose.pos.x, rel_target_pose.pos.y));
 
-        // Change state if vehicle is already pointing at the target or if the
-        // target has changed its position.
+        // Wait until any mission item that needs to be sent is correcly sent
+        if(this->mav->is_sending_mission()) {
+            break;
+        }
+
+        // We need to stop the vehicle by sending the current position as a
+        // detour waypoint.
+        if(!this->is_braking) {
+            this->mav->brake(false);
+            this->is_braking = true;
+        }
+
+        // Check if braking has finished before sending rotation
+        if(!this->mav->is_brake_active() && !this->is_rotating) {
+            print_debug_state("targ_ang: %f\n", targ_ang);
+            this->mav->rotate(targ_ang);
+            this->is_rotating = true;
+        }
+
+        // Stop waiting if target has moved
         if ((target_pose != target_pose_prev)) {
             simstate = ACTIVE_AIRBORNE;
-            print_debug_state("state: ACTIVE_AIRBORNE - target pose changed\n");
+            print_debug_state("state: ACTIVE_AIRBORNE\n");
             break;
         }
 
-        if ((fabs(targ_ang) <= defaults::GZSITL_LOOKAT_ROT_ANG_THRESH_DEG)) {
+        // Stop waiting if rotation has been finished
+        if (this->is_rotating && !this->mav->is_rotation_active()) {
+            print_debug_state("Rotation finished\n");
             simstate = ACTIVE_AIRBORNE;
-            print_debug_state("state: ACTIVE_AIRBORNE - lookat achieved\n");
-            // TODO: Does not look a clean approach
-            target_pose_prev = gazebo::math::Pose::Zero;
+            print_debug_state("state: ACTIVE_AIRBORNE\n");
             break;
-        }
-
-        // This command works only on the mode GUIDED
-        if(mod != mode::GUIDED) {
-            mav->set_mode(mode::GUIDED);
-            break;
-        }
-
-        // Otherwise, continue to request the rotation
-        if(!this->mav->is_rotation_active()) {
-            this->mav->rotate(targ_ang);
         }
 
         break;

@@ -73,6 +73,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
 
     // Rotation
     bool is_rotating = false;
+    bool is_braking = false;
 
     bool is_target_overridden();
     math::Pose get_subs_target_pose();
