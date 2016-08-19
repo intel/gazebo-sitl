@@ -192,6 +192,8 @@ void GZSitlPlugin::OnUpdate()
             simstate = ACTIVE_AIRBORNE;
             print_debug_state("state: ACTIVE_AIRBORNE\n");
         }
+
+        return;
     }
 
     case ACTIVE_AIRBORNE: {
@@ -265,6 +267,8 @@ void GZSitlPlugin::OnUpdate()
             MAV_CMD_CONDITION_YAW, fabs(targ_ang),
             defaults::GZSITL_LOOKAT_ROT_SPEED_DEGPS, -copysign(1, targ_ang), 1,
             0, 0, 0, COND_YAW_REQUEST_INTERVAL_MS);
+
+        return;
     }
 
     case ERROR:
