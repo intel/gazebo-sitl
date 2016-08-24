@@ -16,5 +16,26 @@
     <!-- Configuration of the model -->
     <static>false</static>
     <pose>0 0 0 0 0 0</pose>
+    <link name="sensors">
+      <collision name="contact_geometry">
+        <max_contacts>1</max_contacts>
+        <geometry>
+          <box>
+            <size>0.65 0.65 0.23</size>
+          </box>
+        </geometry>
+        <pose>0 0 0.115 0 0 0.785</pose>
+      </collision>
+      <sensor name="contact" type="contact">
+        <update_rate>5</update_rate>
+        <contact>
+          <collision>contact_geometry</collision>
+        </contact>
+      </sensor>
+    </link>
+    <joint name="sensors_joint" type="fixed">
+      <child>sensors</child>
+      <parent>quadrotor::link</parent>
+    </joint>
   </model>
 </sdf>
