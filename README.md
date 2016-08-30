@@ -13,8 +13,7 @@ A ROS-independent Gazebo plugin for Ardupilot's SITL.
 once with:
 
     ```
-    git submodule init
-    git submodule update
+    git submodule update --init --recursive
     ```
 2. Create a build folder, make and install using CMAKE as follows:
 
