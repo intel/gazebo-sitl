@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="gzsitl_subs_targ_vis">
+    <link name="link">
+      <pose frame="">0 0 0 0 -0 0</pose>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>0</gravity>
+      <visual name="visual">
+        <pose frame="">0 0 0 0 -0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.08</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Grey</name>
+          </script>
+          <ambient>0.2 0.2 0.7 1</ambient>
+          <diffuse>0.2 0.2 0.4 1</diffuse>
+          <specular>0.0 0.0 0.0 1</specular>
+          <emissive>0 0 0.0 1</emissive>
+          <shader type="pixel">
+            <normal_map>__default__</normal_map>
+          </shader>
+        </material>
+        <cast_shadows>1</cast_shadows>
+        <transparency>0.2</transparency>
+        <plugin name="gzsitl_coav_visflags_plugin" filename="libgzsitl_visflags_plugin.so">
+          <gz_visibility_all>false</gz_visibility_all>
+          <gz_visibility_gui>true</gz_visibility_gui>
+          <gz_visibility_sel>false</gz_visibility_sel>
+        </plugin>
+      </visual>
+    </link>
+    <static>false</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>

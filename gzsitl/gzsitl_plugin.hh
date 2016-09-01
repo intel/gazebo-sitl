@@ -47,7 +47,6 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
         INIT_ON_GROUND,
         INIT_AIRBORNE,
         ACTIVE_AIRBORNE,
-        ACTIVE_ROTATING,
         ACTIVE_ON_GROUND,
         ERROR
     };
@@ -60,20 +59,18 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     void set_global_pos_coord_system(mavlink_vehicles::global_pos_int position);
     math::Pose calculate_pose(mavlink_vehicles::attitude attitude,
                               mavlink_vehicles::local_pos local_position);
+    math::Vector3 gazebo_local_to_global(math::Pose p);
 
     // Target and Target Override
-    bool target_exists = false;
-    physics::ModelPtr subs_target;
-    std::string subs_target_name;
+    bool perm_target_exists = false;
+    bool subs_target_exists = false;
+    gazebo::math::Pose subs_target_pose_prev = gazebo::math::Pose::Zero;
+    gazebo::math::Pose perm_target_pose_prev = gazebo::math::Pose::Zero;
     std::mutex subs_target_pose_mtx;
-    math::Pose subs_target_pose;
+    math::Pose subs_target_pose_from_topic;
     std::chrono::time_point<std::chrono::system_clock>
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
-
-    // Rotation
-    bool is_rotating = false;
-    bool is_braking = false;
 
     bool is_target_overridden();
     math::Pose get_subs_target_pose();
@@ -93,12 +90,20 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     // Gazebo Simulation
     physics::ModelPtr model;
     std::string perm_target_name;
+    std::string perm_target_vis_name;
+    std::string subs_target_name;
+    std::string subs_target_vis_name;
     physics::ModelPtr perm_target;
+    physics::ModelPtr perm_target_vis;
+    physics::ModelPtr subs_target;
+    physics::ModelPtr subs_target_vis;
     event::ConnectionPtr update_connection;
 
     // Gazebo Communication
-    std::string perm_target_pub_topic_name = DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME;
-    std::string subs_target_sub_topic_name = DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME;
+    std::string perm_target_pub_topic_name =
+        DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME;
+    std::string subs_target_sub_topic_name =
+        DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME;
     std::string vehicle_pub_topic_name = DEFAULT_VEHICLE_POSE_PUB_TOPIC_NAME;
     transport::NodePtr node;
     transport::PublisherPtr perm_target_pose_pub;

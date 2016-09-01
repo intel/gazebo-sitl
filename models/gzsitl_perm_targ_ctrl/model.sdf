@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <sdf version="1.6">
-  <model name="gzsitl_target">
-    <link name="Gzsitl_target::link_1">
+  <model name="gzsitl_perm_targ_ctrl">
+    <link name="link">
       <pose frame="">0 0 0 0 -0 0</pose>
       <inertial>
         <mass>0.12017</mass>

@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="gzsitl_perm_targ_vis">
+    <link name="link">
+      <pose frame="">0 0 0 0 -0 0</pose>
+      <inertial>
+        <mass>0.12017</mass>
+        <inertia>
+          <ixx>0.00292634</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00292634</iyy>
+          <iyz>0</iyz>
+          <izz>0.00292634</izz>
+        </inertia>
+        <pose frame="">0 0 0 0 -0 0</pose>
+      </inertial>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+      <visual name="visual">
+        <pose frame="">0 0 0 0 -0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.18</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Grey</name>
+          </script>
+          <ambient>0.3 0.3 0.3 1</ambient>
+          <diffuse>0.7 0.7 0.7 1</diffuse>
+          <specular>0.01 0.01 0.01 1</specular>
+          <emissive>0 0 0 1</emissive>
+          <shader type="pixel">
+            <normal_map>__default__</normal_map>
+          </shader>
+        </material>
+        <cast_shadows>1</cast_shadows>
+        <transparency>0.2</transparency>
+        <plugin name="gzsitl_visflags_plugin" filename="libgzsitl_visflags_plugin.so">
+          <gz_visibility_all>false</gz_visibility_all>
+          <gz_visibility_gui>true</gz_visibility_gui>
+          <gz_visibility_sel>false</gz_visibility_sel>
+        </plugin>
+      </visual>
+    </link>
+    <static>1</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>

@@ -94,14 +94,13 @@ void GZSitlPlugin::send_recv()
     }
 }
 
-
 void GZSitlPlugin::OnUpdate()
 {
     // Reset Physic States of the model
     this->model->ResetPhysicsStates();
 
     // Check if mavlink vehicle is initialized
-    if(!this->mav->is_ready()) {
+    if (!this->mav->is_ready()) {
         return;
     }
 
@@ -120,37 +119,52 @@ void GZSitlPlugin::OnUpdate()
     gazebo::math::Pose vehicle_pose = model->GetWorldPose();
     this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose.Ign()));
 
-    // Get pointer to the permanent target if exists
+    // Get pointer to the permanent target control model if exists
     this->perm_target = model->GetWorld()->GetModel(perm_target_name);
-    this->target_exists = (bool)this->perm_target;
+    this->perm_target_exists = (bool)this->perm_target;
 
-    // Publish current permanent target pose if target exists
-    gazebo::math::Pose target_pose;
-    if (this->target_exists) {
-        target_pose = perm_target->GetWorldPose();
-        this->perm_target_pose_pub->Publish(msgs::Convert(target_pose.Ign()));
+    // Retrieve and publish current permanent target pose if target exists
+    gazebo::math::Pose perm_target_pose = gazebo::math::Pose::Zero;
+    if (this->perm_target_exists) {
+        perm_target_pose = this->perm_target->GetWorldPose();
+        this->perm_target_pose_pub->Publish(
+            msgs::Convert(perm_target_pose.Ign()));
     }
 
-    // Check if target is being overridden by the substitute target
-    if (is_target_overridden()) {
-        target_pose = get_subs_target_pose();
-        this->target_exists = true;
-    }
-
-    // Set substitute target position in Gazebo if exists
+    // Get pointer to the subs target control model if exists
     this->subs_target = model->GetWorld()->GetModel(subs_target_name);
-    if (this->subs_target) {
-        this->subs_target->SetWorldPose(target_pose);
+    this->subs_target_exists = (bool)this->subs_target;
+
+    // Retrieve current substitute target pose if target exists
+    gazebo::math::Pose subs_target_pose = gazebo::math::Pose::Zero;
+    if (this->subs_target_exists) {
+        subs_target_pose = this->subs_target->GetWorldPose();
+    } else if(is_target_overridden()) {
+        subs_target_pose = this->get_subs_target_pose();
+
     }
 
-    // Calculate target relative pose if exists
-    gazebo::math::Pose rel_target_pose;
-    if (this->target_exists) {
-        rel_target_pose = target_pose - vehicle_pose;
+    // Update permanent target visualization according to the vehicle
+    mavlink_vehicles::local_pos perm_targ_pos =
+        mavlink_vehicles::math::global_to_local_ned(
+            this->mav->get_mission_waypoint(),
+            this->mav->get_home_position_int());
+    if (this->perm_target_vis =
+            model->GetWorld()->GetModel(perm_target_vis_name)) {
+        this->perm_target_vis->SetWorldPose(gazebo::math::Pose(
+            perm_targ_pos.x, perm_targ_pos.y, -perm_targ_pos.z, 0, 0, 0));
     }
 
-    // Store static target pose to avoid unnecessary repetition of requests
-    static gazebo::math::Pose target_pose_prev = gazebo::math::Pose::Zero;
+    // Update substitute target visualization according to vehicle
+    mavlink_vehicles::local_pos subs_targ_pos =
+        mavlink_vehicles::math::global_to_local_ned(
+            this->mav->get_detour_waypoint(),
+            this->mav->get_home_position_int());
+    if (this->subs_target_vis =
+            model->GetWorld()->GetModel(subs_target_vis_name)) {
+        this->subs_target_vis->SetWorldPose(gazebo::math::Pose(
+            subs_targ_pos.x, subs_targ_pos.y, -subs_targ_pos.z, 0, 0, 0));
+    }
 
     // Execute according to simulation state
     switch (simstate) {
@@ -226,112 +240,23 @@ void GZSitlPlugin::OnUpdate()
 
     case ACTIVE_AIRBORNE: {
 
-        // Neither a permanent target nor a substitute target exists. Do
-        // nothing besides updating vehicle pose.
-        if (!this->target_exists) {
-            break;
-        }
+        // Send the permanent target to the vehicle
+        if (perm_target_pose != this->perm_target_pose_prev) {
+            gazebo::math::Vector3 global_coord =
+                gazebo_local_to_global(perm_target_pose);
 
-        // Do not send target pose if it hasn't changed
-        if (target_pose == target_pose_prev) {
-            break;
-        }
-
-        // Send target pose to the vehicle if it has changed
-        target_pose_prev = target_pose;
-
-        // Calculate the target azimuthal angle of the target in relation to
-        // the vehicle
-        double targ_ang =
-            rad2deg(atan2(-rel_target_pose.pos.x, rel_target_pose.pos.y));
-
-        // Check if the target is located within GZSITL_LOOKAT_TARG_ANG_LIMIT
-        // degrees from the vehicle heading. If not, stop in the current
-        // position and rotate towards target before moving forward.
-        if (fabs(targ_ang) > defaults::GZSITL_LOOKAT_TARG_ANG_LIMIT) {
-
-            // Do not rotate if already very close to target
-            double target_distance = mavlink_vehicles::math::ground_dist(
-                local_pos(rel_target_pose.pos.x, rel_target_pose.pos.y, 0),
-                local_pos(0, 0, 0));
-
-            // Change state if needed on next iteration
-            if (target_distance > defaults::GZSITL_MIN_ROT_DIST_M) {
-
-                // Wait for rotation end
-                simstate = ACTIVE_ROTATING;
-                this->is_braking = false;
-                this->is_rotating = false;
-                print_debug_state("state: ACTIVE_ROTATING\n");
-            }
-        }
-
-        // Convert from Gazebo Local Coordinates to Mav Local NED
-        // Coordinates
-        gazebo::math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(target_pose);
-
-        // Convert from Mav Local NED Coordinates to Global Coordinates
-        gazebo::math::Vector3 global_coord =
-            global_pos_coord_system.SphericalFromLocal(ignition::math::Vector3d(
-                -pose_mavlocal.pos.y, -pose_mavlocal.pos.x,
-                -pose_mavlocal.pos.z));
-
-        // Convert from Global Coordinates to Global Coordinates with
-        // Relative Alt
-        global_coord.z -= global_pos_coord_system.GetElevationReference();
-
-        // Check if the the vehicle is following the main mission or if it is
-        // taking a detour. Rotation is considered a detour.
-        if (is_target_overridden()) {
-            this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
-                                            global_coord.z);
-        } else {
             this->mav->send_mission_waypoint(global_coord.x, global_coord.y,
                                              global_coord.z);
+            this->perm_target_pose_prev = perm_target_pose;
         }
 
-        break;
-    }
-
-    case ACTIVE_ROTATING: {
-
-        // Calculate the target azimuthal angle of the target in relation to
-        // the vehicle
-        double targ_ang =
-            rad2deg(atan2(-rel_target_pose.pos.x, rel_target_pose.pos.y));
-
-        // Wait until any mission item that needs to be sent is correcly sent
-        if(this->mav->is_sending_mission()) {
-            break;
-        }
-
-        // We need to stop the vehicle by sending the current position as a
-        // detour waypoint.
-        if(!this->is_braking) {
-            this->mav->brake(false);
-            this->is_braking = true;
-        }
-
-        // Check if braking has finished before sending rotation
-        if(!this->mav->is_brake_active() && !this->is_rotating) {
-            print_debug_state("targ_ang: %f\n", targ_ang);
-            this->mav->rotate(targ_ang);
-            this->is_rotating = true;
-        }
-
-        // Stop waiting if target has moved
-        if ((target_pose != target_pose_prev)) {
-            simstate = ACTIVE_AIRBORNE;
-            print_debug_state("state: ACTIVE_AIRBORNE\n");
-            break;
-        }
-
-        // Stop waiting if rotation has been finished
-        if (this->is_rotating && !this->mav->is_rotation_active()) {
-            print_debug_state("Rotation finished\n");
-            simstate = ACTIVE_AIRBORNE;
-            print_debug_state("state: ACTIVE_AIRBORNE\n");
-            break;
+        // Send the substitute target to the vehicle
+        if (subs_target_pose != this->subs_target_pose_prev) {
+            gazebo::math::Vector3 global_coord =
+                gazebo_local_to_global(subs_target_pose);
+            this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
+                                            global_coord.z);
+            this->subs_target_pose_prev = subs_target_pose;
         }
 
         break;
@@ -355,11 +280,12 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     model = m;
 
     // Get name for the permanent target
-    perm_target_name = sdf->Get<std::string>("perm_target_name");
-    perm_target = model->GetWorld()->GetModel(perm_target_name);
+    perm_target_name = sdf->Get<std::string>("perm_target_ctrl_name");
+    perm_target_vis_name = sdf->Get<std::string>("perm_target_vis_name");
 
     // Get name for the substitute target
-    subs_target_name = sdf->Get<std::string>("subs_target_name");
+    subs_target_name = sdf->Get<std::string>("subs_target_ctrl_name");
+    subs_target_vis_name = sdf->Get<std::string>("subs_target_vis_name");
 
     // Get topic names
     if (sdf->HasElement("perm_target_topic_name")) {
@@ -434,18 +360,19 @@ void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
 {
     // Coav Target Pose has been received
     if (_msg->has_position() && _msg->has_orientation()) {
-        subs_target_pose_sub_recv_time = std::chrono::system_clock::now();
+        this->subs_target_pose_sub_recv_time = std::chrono::system_clock::now();
 
         std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
-        subs_target_pose.Set(gazebo::msgs::ConvertIgn(_msg->position()),
-                             gazebo::msgs::ConvertIgn(_msg->orientation()));
+        this->subs_target_pose_from_topic.Set(
+            gazebo::msgs::ConvertIgn(_msg->position()),
+            gazebo::msgs::ConvertIgn(_msg->orientation()));
     }
 }
 
 gazebo::math::Pose GZSitlPlugin::get_subs_target_pose()
 {
     std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
-    return subs_target_pose;
+    return subs_target_pose_from_topic;
 }
 
 bool GZSitlPlugin::is_target_overridden()
@@ -457,5 +384,24 @@ bool GZSitlPlugin::is_target_overridden()
     return duration_cast<milliseconds>(curr_time -
                                        subs_target_pose_sub_recv_time)
                .count() < defaults::GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
+}
+
+gazebo::math::Vector3 GZSitlPlugin::gazebo_local_to_global(gazebo::math::Pose p)
+{
+
+    // Convert from Gazebo Local Coordinates to Mav Local NED
+    // Coordinates
+    gazebo::math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(p);
+
+    // Convert from Mav Local NED Coordinates to Global Coordinates
+    gazebo::math::Vector3 global_coord =
+        global_pos_coord_system.SphericalFromLocal(ignition::math::Vector3d(
+            -pose_mavlocal.pos.y, -pose_mavlocal.pos.x, -pose_mavlocal.pos.z));
+
+    // Convert from Global Coordinates to Global Coordinates with
+    // Relative Alt
+    global_coord.z -= global_pos_coord_system.GetElevationReference();
+
+    return global_coord;
 }
 

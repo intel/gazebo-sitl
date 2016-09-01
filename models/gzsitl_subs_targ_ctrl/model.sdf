@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sdf version="1.6">
-  <model name="gzsitl_coav_target">
+  <model name="gzsitl_subs_targ_ctrl">
     <link name="link">
       <pose frame="">0 0 0 0 -0 0</pose>
       <self_collide>0</self_collide>
@@ -32,7 +32,7 @@
         <plugin name="gzsitl_coav_visflags_plugin" filename="libgzsitl_visflags_plugin.so">
           <gz_visibility_all>false</gz_visibility_all>
           <gz_visibility_gui>true</gz_visibility_gui>
-          <gz_visibility_sel>false</gz_visibility_sel>
+          <gz_visibility_sel>true</gz_visibility_sel>
         </plugin>
       </visual>
     </link>
