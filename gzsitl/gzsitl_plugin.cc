@@ -89,7 +89,7 @@ GZSitlPlugin::~GZSitlPlugin()
 
 void GZSitlPlugin::send_recv()
 {
-    while (true) {
+    while (this->send_recv_thread_run) {
         this->mav->update();
     }
 }
@@ -253,7 +253,7 @@ void GZSitlPlugin::OnUpdate()
             gazebo::math::Vector3 global_coord =
                 gazebo_local_to_global(this->subs_target_pose);
             this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
-                                            global_coord.z);
+                                            global_coord.z, false);
             this->subs_target_pose_prev = this->subs_target_pose;
         }
 
