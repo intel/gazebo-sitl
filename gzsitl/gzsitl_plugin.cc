@@ -124,11 +124,10 @@ void GZSitlPlugin::OnUpdate()
     this->perm_target_exists = (bool)this->perm_target;
 
     // Retrieve and publish current permanent target pose if target exists
-    gazebo::math::Pose perm_target_pose = gazebo::math::Pose::Zero;
     if (this->perm_target_exists) {
-        perm_target_pose = this->perm_target->GetWorldPose();
+        this->perm_target_pose = this->perm_target->GetWorldPose();
         this->perm_target_pose_pub->Publish(
-            msgs::Convert(perm_target_pose.Ign()));
+            msgs::Convert(this->perm_target_pose.Ign()));
     }
 
     // Get pointer to the subs target control model if exists
@@ -136,11 +135,10 @@ void GZSitlPlugin::OnUpdate()
     this->subs_target_exists = (bool)this->subs_target;
 
     // Retrieve current substitute target pose if target exists
-    gazebo::math::Pose subs_target_pose = gazebo::math::Pose::Zero;
     if (this->subs_target_exists) {
-        subs_target_pose = this->subs_target->GetWorldPose();
+        this->subs_target_pose = this->subs_target->GetWorldPose();
     } else if(is_target_overridden()) {
-        subs_target_pose = this->get_subs_target_pose();
+        this->subs_target_pose = this->get_subs_target_pose();
 
     }
 
@@ -241,22 +239,22 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_AIRBORNE: {
 
         // Send the permanent target to the vehicle
-        if (perm_target_pose != this->perm_target_pose_prev) {
+        if (this->perm_target_pose != this->perm_target_pose_prev) {
             gazebo::math::Vector3 global_coord =
-                gazebo_local_to_global(perm_target_pose);
+                gazebo_local_to_global(this->perm_target_pose);
 
             this->mav->send_mission_waypoint(global_coord.x, global_coord.y,
                                              global_coord.z);
-            this->perm_target_pose_prev = perm_target_pose;
+            this->perm_target_pose_prev = this->perm_target_pose;
         }
 
         // Send the substitute target to the vehicle
-        if (subs_target_pose != this->subs_target_pose_prev) {
+        if (this->subs_target_pose != this->subs_target_pose_prev) {
             gazebo::math::Vector3 global_coord =
-                gazebo_local_to_global(subs_target_pose);
+                gazebo_local_to_global(this->subs_target_pose);
             this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
                                             global_coord.z);
-            this->subs_target_pose_prev = subs_target_pose;
+            this->subs_target_pose_prev = this->subs_target_pose;
         }
 
         break;

@@ -64,7 +64,9 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     // Target and Target Override
     bool perm_target_exists = false;
     bool subs_target_exists = false;
+    gazebo::math::Pose subs_target_pose = gazebo::math::Pose::Zero;
     gazebo::math::Pose subs_target_pose_prev = gazebo::math::Pose::Zero;
+    gazebo::math::Pose perm_target_pose = gazebo::math::Pose::Zero;
     gazebo::math::Pose perm_target_pose_prev = gazebo::math::Pose::Zero;
     std::mutex subs_target_pose_mtx;
     math::Pose subs_target_pose_from_topic;
