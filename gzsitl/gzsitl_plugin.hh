@@ -53,13 +53,9 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     sim_state simstate = INIT;
 
     // Vehicle Coordinates
-    common::SphericalCoordinates global_pos_coord_system;
-
-    math::Pose coord_gzlocal_to_mavlocal(math::Pose gzpose);
-    void set_global_pos_coord_system(mavlink_vehicles::global_pos_int position);
+    mavlink_vehicles::global_pos_int home_position;
     math::Pose calculate_pose(mavlink_vehicles::attitude attitude,
                               mavlink_vehicles::local_pos local_position);
-    math::Vector3 gazebo_local_to_global(math::Pose p);
 
     // Target and Target Override
     bool perm_target_exists = false;

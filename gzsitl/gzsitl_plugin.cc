@@ -44,7 +44,6 @@ using namespace mavlink_vehicles;
 GZ_REGISTER_MODEL_PLUGIN(GZSitlPlugin)
 
 GZSitlPlugin::GZSitlPlugin()
-    : global_pos_coord_system(common::SphericalCoordinates::EARTH_WGS84)
 {
     // Socket Initialization
     this->sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -146,7 +145,7 @@ void GZSitlPlugin::OnUpdate()
     mavlink_vehicles::local_pos perm_targ_pos =
         mavlink_vehicles::math::global_to_local_ned(
             this->mav->get_mission_waypoint(),
-            this->mav->get_home_position_int());
+            this->home_position);
     if (this->perm_target_vis =
             model->GetWorld()->GetModel(perm_target_vis_name)) {
         this->perm_target_vis->SetWorldPose(gazebo::math::Pose(
@@ -157,7 +156,7 @@ void GZSitlPlugin::OnUpdate()
     mavlink_vehicles::local_pos subs_targ_pos =
         mavlink_vehicles::math::global_to_local_ned(
             this->mav->get_detour_waypoint(),
-            this->mav->get_home_position_int());
+            this->home_position);
     if (this->subs_target_vis =
             model->GetWorld()->GetModel(subs_target_vis_name)) {
         this->subs_target_vis->SetWorldPose(gazebo::math::Pose(
@@ -182,8 +181,7 @@ void GZSitlPlugin::OnUpdate()
     case INIT_AIRBORNE: {
 
         // Set home position
-        global_pos_int home_pos = this->mav->get_home_position_int();
-        set_global_pos_coord_system(home_pos);
+        this->home_position = this->mav->get_home_position_int();
         simstate = ACTIVE_AIRBORNE;
         print_debug_state("state: ACTIVE_AIRBORNE\n");
 
@@ -193,8 +191,7 @@ void GZSitlPlugin::OnUpdate()
     case INIT_ON_GROUND: {
 
         // Set home position
-        global_pos_int home_pos = this->mav->get_home_position_int();
-        set_global_pos_coord_system(home_pos);
+        this->home_position = this->mav->get_home_position_int();
 
         // Initial takeoff if AUTOTAKEOFF and if not already on air
         if (!TAKEOFF_AUTO) {
@@ -240,20 +237,25 @@ void GZSitlPlugin::OnUpdate()
 
         // Send the permanent target to the vehicle
         if (this->perm_target_pose != this->perm_target_pose_prev) {
-            gazebo::math::Vector3 global_coord =
-                gazebo_local_to_global(this->perm_target_pose);
-
-            this->mav->send_mission_waypoint(global_coord.x, global_coord.y,
-                                             global_coord.z);
+            mavlink_vehicles::global_pos_int global_coord =
+                mavlink_vehicles::math::local_ned_to_global(
+                    mavlink_vehicles::local_pos(this->perm_target_pose.pos.y,
+                                                this->perm_target_pose.pos.x,
+                                                -this->perm_target_pose.pos.z),
+                    this->home_position);
+            this->mav->send_mission_waypoint(global_coord, true);
             this->perm_target_pose_prev = this->perm_target_pose;
         }
 
         // Send the substitute target to the vehicle
         if (this->subs_target_pose != this->subs_target_pose_prev) {
-            gazebo::math::Vector3 global_coord =
-                gazebo_local_to_global(this->subs_target_pose);
-            this->mav->send_detour_waypoint(global_coord.x, global_coord.y,
-                                            global_coord.z, false);
+            mavlink_vehicles::global_pos_int global_coord =
+                mavlink_vehicles::math::local_ned_to_global(
+                    mavlink_vehicles::local_pos(this->subs_target_pose.pos.y,
+                                                this->subs_target_pose.pos.x,
+                                                -this->subs_target_pose.pos.z),
+                    this->home_position);
+            this->mav->send_detour_waypoint(global_coord, true);
             this->subs_target_pose_prev = this->subs_target_pose;
         }
 
@@ -325,26 +327,6 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         boost::bind(&GZSitlPlugin::OnUpdate, this));
 }
 
-gazebo::math::Pose GZSitlPlugin::coord_gzlocal_to_mavlocal(gazebo::math::Pose gzpose)
-{
-    return gazebo::math::Pose(gzpose.pos.y, gzpose.pos.x, -gzpose.pos.z,
-                      gzpose.rot.GetRoll(), -gzpose.rot.GetPitch(),
-                      -gzpose.rot.GetYaw());
-}
-
-void GZSitlPlugin::set_global_pos_coord_system(
-    global_pos_int position)
-{
-    ignition::math::Angle ref_lat =
-        ignition::math::Angle(((double)position.lat / 1E7) * (M_PI / 180.0));
-    ignition::math::Angle ref_lon =
-        ignition::math::Angle(((double)position.lon / 1E7) * (M_PI / 180.0));
-
-    global_pos_coord_system.SetElevationReference(position.alt / 1000.0);
-    global_pos_coord_system.SetLatitudeReference(ref_lat);
-    global_pos_coord_system.SetLongitudeReference(ref_lon);
-}
-
 gazebo::math::Pose GZSitlPlugin::calculate_pose(attitude attitude,
                                                 local_pos local_position)
 {
@@ -382,24 +364,5 @@ bool GZSitlPlugin::is_target_overridden()
     return duration_cast<milliseconds>(curr_time -
                                        subs_target_pose_sub_recv_time)
                .count() < defaults::GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
-}
-
-gazebo::math::Vector3 GZSitlPlugin::gazebo_local_to_global(gazebo::math::Pose p)
-{
-
-    // Convert from Gazebo Local Coordinates to Mav Local NED
-    // Coordinates
-    gazebo::math::Pose pose_mavlocal = coord_gzlocal_to_mavlocal(p);
-
-    // Convert from Mav Local NED Coordinates to Global Coordinates
-    gazebo::math::Vector3 global_coord =
-        global_pos_coord_system.SphericalFromLocal(ignition::math::Vector3d(
-            -pose_mavlocal.pos.y, -pose_mavlocal.pos.x, -pose_mavlocal.pos.z));
-
-    // Convert from Global Coordinates to Global Coordinates with
-    // Relative Alt
-    global_coord.z -= global_pos_coord_system.GetElevationReference();
-
-    return global_coord;
 }
 
