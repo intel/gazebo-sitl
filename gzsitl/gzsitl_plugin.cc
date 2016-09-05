@@ -149,7 +149,7 @@ void GZSitlPlugin::OnUpdate()
     if (this->perm_target_vis =
             model->GetWorld()->GetModel(perm_target_vis_name)) {
         this->perm_target_vis->SetWorldPose(gazebo::math::Pose(
-            perm_targ_pos.x, perm_targ_pos.y, -perm_targ_pos.z, 0, 0, 0));
+            perm_targ_pos.y, perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
     }
 
     // Update substitute target visualization according to vehicle
@@ -160,7 +160,7 @@ void GZSitlPlugin::OnUpdate()
     if (this->subs_target_vis =
             model->GetWorld()->GetModel(subs_target_vis_name)) {
         this->subs_target_vis->SetWorldPose(gazebo::math::Pose(
-            subs_targ_pos.x, subs_targ_pos.y, -subs_targ_pos.z, 0, 0, 0));
+            subs_targ_pos.y, subs_targ_pos.x, -subs_targ_pos.z, 0, 0, 0));
     }
 
     // Execute according to simulation state
