@@ -14,10 +14,21 @@ include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 
 # Custom instalation paths
-if (GZSITL_INSTALL_PATH)
-    set(GZSITL_PLUGIN_PATH ${GZSITL_INSTALL_PATH})
+if (GZSITL_PLUGIN_INSTALL_PATH)
+    GET_FILENAME_COMPONENT(GZSITL_PLUGIN_PATH ${GZSITL_PLUGIN_INSTALL_PATH} ABSOLUTE)
 else()
     set(GZSITL_PLUGIN_PATH ${GAZEBO_PLUGIN_PATH})
+endif()
+
+# Gazebo 7 does not provide a ${GAZEBO_MODEL_PATH} variable.
+# That's why we are accessing it relatively to ${GAZEBO_MEDIA_PATH}.
+# A proper ${GAZEBO_MODEL_PATH} variable might be available in Gazebo 8+.
+if (GZSITL_MODEL_INSTALL_PATH)
+    GET_FILENAME_COMPONENT(GZSITL_MODEL_PATH ${GZSITL_MODEL_INSTALL_PATH} ABSOLUTE)
+elseif(GAZEBO_MODEL_PATH)
+    set(GZSITL_MODEL_PATH ${GAZEBO_MODEL_PATH})
+else()
+    GET_FILENAME_COMPONENT(GZSITL_MODEL_PATH ${GAZEBO_MEDIA_PATH}/../models ABSOLUTE)
 endif()
 
 # Submodule includes

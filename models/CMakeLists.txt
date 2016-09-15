@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
-        DESTINATION $ENV{HOME}/.gazebo/models
-        USE_SOURCE_PERMISSIONS
+        DESTINATION ${GZSITL_MODEL_PATH}
         PATTERN "CMakeLists.txt" EXCLUDE)
 
