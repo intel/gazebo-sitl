@@ -1,4 +1,4 @@
-# Gazebo Sitl Plugin #
+# Gazebo SITL Plugin #
 
 A ROS-independent Gazebo plugin for Ardupilot's SITL.
 
@@ -73,11 +73,11 @@ already Airborne.
 
 When Airborne, the vehicle follows the transparent sphere (target).
 
-## Throubleshooting ##
+## Troubleshooting ##
 
 Gazebo might fail to open if the needed models or plugins are not found. If
 that happens, make sure the needed plugins have been successfully built and
 installed into your shared libraries directory and that all the needed models
 are present into ~/.gazebo/models. The Gazebo --verbose terminal output is
-useful for determining wether a plugin or a models has not not been found.
+useful for determining whether a plugin or a model has not not been found.
 
