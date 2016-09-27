@@ -28,13 +28,12 @@ once with:
 3. Download Gazebo models if necessary:
 
     Gazebo automatically searches and downloads models referenced in the .world
-    file that are not already present in ~/.gazebo/models or in
-    GAZEBO_MODEL_PATH. However, in some cases the download might take a long
+    file that are not already present into GAZEBO_MODEL_PATH.
+    However, in some cases the download might take a long
     time for no apparent reason. Download the Quadrotor model manually with:
 
     ```
-    mkdir -p ~/.gazebo/models
-    curl http://models.gazebosim.org/quadrotor/model.tar.gz | tar xvz -C ~/.gazebo/models
+    curl http://models.gazebosim.org/quadrotor/model.tar.gz | tar xvz -C GAZEBO_MODEL_PATH
     ```
 
 ## Run ##
@@ -78,6 +77,6 @@ When Airborne, the vehicle follows the transparent sphere (target).
 Gazebo might fail to open if the needed models or plugins are not found. If
 that happens, make sure the needed plugins have been successfully built and
 installed into your shared libraries directory and that all the needed models
-are present into ~/.gazebo/models. The Gazebo --verbose terminal output is
+are present into GAZEBO_MODEL_PATH. The Gazebo --verbose terminal output is
 useful for determining whether a plugin or a model has not not been found.
 
