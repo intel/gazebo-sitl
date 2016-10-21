@@ -105,8 +105,6 @@ void GZSitlPlugin::OnUpdate()
 
     // Get Status of the vehicle
     status status = this->mav->get_status();
-    arm_status arm_stat = this->mav->get_arm_status();
-    mode mod = this->mav->get_mode();
 
     // Get vehicle pose and update gazebo vehicle model
     gazebo::math::Pose curr_pose;
@@ -197,16 +195,6 @@ void GZSitlPlugin::OnUpdate()
         if (!TAKEOFF_AUTO) {
             simstate = ACTIVE_ON_GROUND;
             print_debug_state("state: ACTIVE_ON_GROUND\n");
-            break;
-        }
-
-        if (mod != mode::GUIDED) {
-            this->mav->set_mode(mode::GUIDED);
-            break;
-        }
-
-        if (arm_stat != arm_status::ARMED) {
-            this->mav->arm_throttle();
             break;
         }
 
