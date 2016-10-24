@@ -20,7 +20,7 @@
 #define GZSITL_TARGET_MODEL_NAME "gzsitl_target"
 #define DEBUG_STATE (true)
 #define DEBUG_MAVLINK (false)
-#define MAVPROXY_PORT (14556)
+#define MAVPROXY_PORT (15556)
 #define DEFAULT_TARGET_SYSTEM_ID (1)    // Default Copter system ID
 #define DEFAULT_TARGET_COMPONENT_ID (1) // Default Copter component ID
 #define DEFAULT_SYSTEM_ID (22)          // This system ID
