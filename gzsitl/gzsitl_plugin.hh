@@ -54,24 +54,24 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
 
     // Vehicle Coordinates
     mavlink_vehicles::global_pos_int home_position;
-    math::Pose calculate_pose(mavlink_vehicles::attitude attitude,
+    ignition::math::Pose3d calculate_pose(mavlink_vehicles::attitude attitude,
                               mavlink_vehicles::local_pos local_position);
 
     // Target and Target Override
     bool perm_target_exists = false;
     bool subs_target_exists = false;
-    gazebo::math::Pose subs_target_pose = gazebo::math::Pose::Zero;
-    gazebo::math::Pose subs_target_pose_prev = gazebo::math::Pose::Zero;
-    gazebo::math::Pose perm_target_pose = gazebo::math::Pose::Zero;
-    gazebo::math::Pose perm_target_pose_prev = gazebo::math::Pose::Zero;
+    ignition::math::Pose3d subs_target_pose = ignition::math::Pose3d::Zero;
+    ignition::math::Pose3d subs_target_pose_prev = ignition::math::Pose3d::Zero;
+    ignition::math::Pose3d perm_target_pose = ignition::math::Pose3d::Zero;
+    ignition::math::Pose3d perm_target_pose_prev = ignition::math::Pose3d::Zero;
     std::mutex subs_target_pose_mtx;
-    math::Pose subs_target_pose_from_topic;
+    ignition::math::Pose3d subs_target_pose_from_topic;
     std::chrono::time_point<std::chrono::system_clock>
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
 
     bool is_target_overridden();
-    math::Pose get_subs_target_pose();
+    ignition::math::Pose3d get_subs_target_pose();
     void on_subs_target_pose_recvd(ConstPosePtr &_msg);
 
     // Mavlink
