@@ -13,6 +13,13 @@ find_package(gazebo REQUIRED)
 include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 
+# Find ignition-math
+find_package(ignition-math3 REQUIRED)
+
+# ignition-math Include and Link directories
+include_directories(${IGNITION-MATH_INCLUDE_DIRS})
+link_directories(${IGNITION-MATH_LIBRARY_DIRS})
+
 # Custom instalation paths
 if (GZSITL_PLUGIN_INSTALL_PATH)
     GET_FILENAME_COMPONENT(GZSITL_PLUGIN_PATH ${GZSITL_PLUGIN_INSTALL_PATH} ABSOLUTE)
