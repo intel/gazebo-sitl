@@ -17,6 +17,8 @@
 #include <mutex>
 #include <thread>
 
+#include <ignition/math.hh>
+
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
 #include "mavlink_vehicles.hh"
@@ -107,33 +109,33 @@ void GZSitlPlugin::OnUpdate()
     status status = this->mav->get_status();
 
     // Get vehicle pose and update gazebo vehicle model
-    gazebo::math::Pose curr_pose;
+    ignition::math::Pose3d curr_pose;
     curr_pose = calculate_pose(this->mav->get_attitude(),
                                this->mav->get_local_position_ned());
     model->SetWorldPose(curr_pose);
 
     // Publish current gazebo vehicle pose
-    gazebo::math::Pose vehicle_pose = model->GetWorldPose();
-    this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose.Ign()));
+    ignition::math::Pose3d vehicle_pose = model->WorldPose();
+    this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose));
 
     // Get pointer to the permanent target control model if exists
-    this->perm_target = model->GetWorld()->GetModel(perm_target_name);
+    this->perm_target = model->GetWorld()->ModelByName(perm_target_name);
     this->perm_target_exists = (bool)this->perm_target;
 
     // Retrieve and publish current permanent target pose if target exists
     if (this->perm_target_exists) {
-        this->perm_target_pose = this->perm_target->GetWorldPose();
+        this->perm_target_pose = this->perm_target->WorldPose();
         this->perm_target_pose_pub->Publish(
-            msgs::Convert(this->perm_target_pose.Ign()));
+            msgs::Convert(this->perm_target_pose));
     }
 
     // Get pointer to the subs target control model if exists
-    this->subs_target = model->GetWorld()->GetModel(subs_target_name);
+    this->subs_target = model->GetWorld()->ModelByName(subs_target_name);
     this->subs_target_exists = (bool)this->subs_target;
 
     // Retrieve current substitute target pose if target exists
     if (this->subs_target_exists) {
-        this->subs_target_pose = this->subs_target->GetWorldPose();
+        this->subs_target_pose = this->subs_target->WorldPose();
     } else if(is_target_overridden()) {
         this->subs_target_pose = this->get_subs_target_pose();
 
@@ -145,8 +147,8 @@ void GZSitlPlugin::OnUpdate()
             this->mav->get_mission_waypoint(),
             this->home_position);
     if (this->perm_target_vis =
-            model->GetWorld()->GetModel(perm_target_vis_name)) {
-        this->perm_target_vis->SetWorldPose(gazebo::math::Pose(
+            model->GetWorld()->ModelByName(perm_target_vis_name)) {
+        this->perm_target_vis->SetWorldPose(ignition::math::Pose3d(
             perm_targ_pos.y, perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
     }
 
@@ -156,8 +158,8 @@ void GZSitlPlugin::OnUpdate()
             this->mav->get_detour_waypoint(),
             this->home_position);
     if (this->subs_target_vis =
-            model->GetWorld()->GetModel(subs_target_vis_name)) {
-        this->subs_target_vis->SetWorldPose(gazebo::math::Pose(
+            model->GetWorld()->ModelByName(subs_target_vis_name)) {
+        this->subs_target_vis->SetWorldPose(ignition::math::Pose3d(
             subs_targ_pos.y, subs_targ_pos.x, -subs_targ_pos.z, 0, 0, 0));
     }
 
@@ -227,9 +229,9 @@ void GZSitlPlugin::OnUpdate()
         if (this->perm_target_pose != this->perm_target_pose_prev) {
             mavlink_vehicles::global_pos_int global_coord =
                 mavlink_vehicles::math::local_ned_to_global(
-                    mavlink_vehicles::local_pos(this->perm_target_pose.pos.y,
-                                                this->perm_target_pose.pos.x,
-                                                -this->perm_target_pose.pos.z),
+                    mavlink_vehicles::local_pos(this->perm_target_pose.Pos()[1],
+                                                this->perm_target_pose.Pos()[0],
+                                                -this->perm_target_pose.Pos()[2]),
                     this->home_position);
             this->mav->send_mission_waypoint(global_coord, true);
             this->perm_target_pose_prev = this->perm_target_pose;
@@ -239,9 +241,9 @@ void GZSitlPlugin::OnUpdate()
         if (this->subs_target_pose != this->subs_target_pose_prev) {
             mavlink_vehicles::global_pos_int global_coord =
                 mavlink_vehicles::math::local_ned_to_global(
-                    mavlink_vehicles::local_pos(this->subs_target_pose.pos.y,
-                                                this->subs_target_pose.pos.x,
-                                                -this->subs_target_pose.pos.z),
+                    mavlink_vehicles::local_pos(this->subs_target_pose.Pos()[1],
+                                                this->subs_target_pose.Pos()[0],
+                                                -this->subs_target_pose.Pos()[2]),
                     this->home_position);
             this->mav->send_detour_waypoint(global_coord, true);
             this->subs_target_pose_prev = this->subs_target_pose;
@@ -290,7 +292,7 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
     // Setup Publishers
     this->node = transport::NodePtr(new transport::Node());
-    this->node->Init(this->model->GetWorld()->GetName());
+    this->node->Init(this->model->GetWorld()->Name());
 
     this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
@@ -315,11 +317,11 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         boost::bind(&GZSitlPlugin::OnUpdate, this));
 }
 
-gazebo::math::Pose GZSitlPlugin::calculate_pose(attitude attitude,
+ignition::math::Pose3d GZSitlPlugin::calculate_pose(attitude attitude,
                                                 local_pos local_position)
 {
     // Convert from NED (North, East, Down) to ENU (East, North Up)
-    return gazebo::math::Pose(local_position.y, local_position.x,
+    return ignition::math::Pose3d(local_position.y, local_position.x,
                               -local_position.z, attitude.pitch, attitude.roll,
                               -attitude.yaw);
 }
@@ -337,7 +339,7 @@ void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
     }
 }
 
-gazebo::math::Pose GZSitlPlugin::get_subs_target_pose()
+ignition::math::Pose3d GZSitlPlugin::get_subs_target_pose()
 {
     std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
     return subs_target_pose_from_topic;
