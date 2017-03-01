@@ -15,14 +15,9 @@
 */
 
 #include <mutex>
-#include <thread>
-
-#include <ignition/math.hh>
 
 #include "defines.hh"
 #include "gzsitl_plugin.hh"
-#include "mavlink_vehicles.hh"
-
 
 namespace defaults
 {
@@ -109,13 +104,13 @@ void GZSitlPlugin::OnUpdate()
     status status = this->mav->get_status();
 
     // Get vehicle pose and update gazebo vehicle model
-    ignition::math::Pose3d curr_pose;
+    Pose3d curr_pose;
     curr_pose = calculate_pose(this->mav->get_attitude(),
                                this->mav->get_local_position_ned());
     model->SetWorldPose(curr_pose);
 
     // Publish current gazebo vehicle pose
-    ignition::math::Pose3d vehicle_pose = model->WorldPose();
+    Pose3d vehicle_pose = model->WorldPose();
     this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose));
 
     // Get pointer to the permanent target control model if exists
@@ -148,8 +143,8 @@ void GZSitlPlugin::OnUpdate()
             this->home_position);
     if (this->perm_target_vis =
             model->GetWorld()->ModelByName(perm_target_vis_name)) {
-        this->perm_target_vis->SetWorldPose(ignition::math::Pose3d(
-            perm_targ_pos.y, perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
+        this->perm_target_vis->SetWorldPose(Pose3d(perm_targ_pos.y,
+                    perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
     }
 
     // Update substitute target visualization according to vehicle
@@ -159,8 +154,8 @@ void GZSitlPlugin::OnUpdate()
             this->home_position);
     if (this->subs_target_vis =
             model->GetWorld()->ModelByName(subs_target_vis_name)) {
-        this->subs_target_vis->SetWorldPose(ignition::math::Pose3d(
-            subs_targ_pos.y, subs_targ_pos.x, -subs_targ_pos.z, 0, 0, 0));
+        this->subs_target_vis->SetWorldPose(Pose3d(subs_targ_pos.y,
+                    subs_targ_pos.x, -subs_targ_pos.z, 0, 0, 0));
     }
 
     // Execute according to simulation state
@@ -317,11 +312,10 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         boost::bind(&GZSitlPlugin::OnUpdate, this));
 }
 
-ignition::math::Pose3d GZSitlPlugin::calculate_pose(attitude attitude,
-                                                local_pos local_position)
+Pose3d GZSitlPlugin::calculate_pose(attitude attitude, local_pos local_position)
 {
     // Convert from NED (North, East, Down) to ENU (East, North Up)
-    return ignition::math::Pose3d(local_position.y, local_position.x,
+    return Pose3d(local_position.y, local_position.x,
                               -local_position.z, attitude.pitch, attitude.roll,
                               -attitude.yaw);
 }
@@ -339,7 +333,7 @@ void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
     }
 }
 
-ignition::math::Pose3d GZSitlPlugin::get_subs_target_pose()
+Pose3d GZSitlPlugin::get_subs_target_pose()
 {
     std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
     return subs_target_pose_from_topic;

@@ -20,12 +20,15 @@
 #include <gazebo/common/common.hh>
 #include <gazebo/physics/physics.hh>
 #include <gazebo/transport/transport.hh>
+#include <ignition/math.hh>
 
 #include "mavlink_vehicles.hh"
 
 #define DEFAULT_PERM_TARGET_POSE_PUB_TOPIC_NAME "target_pose"
 #define DEFAULT_SUBS_TARGET_POSE_SUB_TOPIC_NAME "coav/coav_target_pose"
 #define DEFAULT_VEHICLE_POSE_PUB_TOPIC_NAME "vehicle_pose"
+
+using namespace ignition::math;
 
 namespace gazebo
 {
@@ -54,24 +57,24 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
 
     // Vehicle Coordinates
     mavlink_vehicles::global_pos_int home_position;
-    ignition::math::Pose3d calculate_pose(mavlink_vehicles::attitude attitude,
+    Pose3d calculate_pose(mavlink_vehicles::attitude attitude,
                               mavlink_vehicles::local_pos local_position);
 
     // Target and Target Override
     bool perm_target_exists = false;
     bool subs_target_exists = false;
-    ignition::math::Pose3d subs_target_pose = ignition::math::Pose3d::Zero;
-    ignition::math::Pose3d subs_target_pose_prev = ignition::math::Pose3d::Zero;
-    ignition::math::Pose3d perm_target_pose = ignition::math::Pose3d::Zero;
-    ignition::math::Pose3d perm_target_pose_prev = ignition::math::Pose3d::Zero;
+    Pose3d subs_target_pose = Pose3d::Zero;
+    Pose3d subs_target_pose_prev = Pose3d::Zero;
+    Pose3d perm_target_pose = Pose3d::Zero;
+    Pose3d perm_target_pose_prev = Pose3d::Zero;
     std::mutex subs_target_pose_mtx;
-    ignition::math::Pose3d subs_target_pose_from_topic;
+    Pose3d subs_target_pose_from_topic;
     std::chrono::time_point<std::chrono::system_clock>
         subs_target_pose_sub_recv_time =
             std::chrono::system_clock::from_time_t(0);
 
     bool is_target_overridden();
-    ignition::math::Pose3d get_subs_target_pose();
+    Pose3d get_subs_target_pose();
     void on_subs_target_pose_recvd(ConstPosePtr &_msg);
 
     // Mavlink
