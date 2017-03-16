@@ -23,7 +23,6 @@ namespace defaults
 {
 const uint16_t GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ = 50;
 const uint16_t GZSITL_VEHICLE_POSE_PUB_FREQ_HZ = 50;
-const uint16_t GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME = 1000;
 const double GZSITL_LOOKAT_TARG_ANG_LIMIT = 60.0;
 const double GZSITL_LOOKAT_ROT_ANG_THRESH_DEG = 10.0;
 const double GZSITL_LOOKAT_ROT_SPEED_DEGPS = 90.0;
@@ -124,18 +123,6 @@ void GZSitlPlugin::OnUpdate()
             msgs::Convert(this->perm_target_pose));
     }
 
-    // Get pointer to the subs target control model if exists
-    this->subs_target = model->GetWorld()->ModelByName(subs_target_name);
-    this->subs_target_exists = (bool)this->subs_target;
-
-    // Retrieve current substitute target pose if target exists
-    if (this->subs_target_exists) {
-        this->subs_target_pose = this->subs_target->WorldPose();
-    } else if(is_target_overridden()) {
-        this->subs_target_pose = this->get_subs_target_pose();
-
-    }
-
     // Update permanent target visualization according to the vehicle
     mavlink_vehicles::local_pos perm_targ_pos =
         mavlink_vehicles::math::global_to_local_ned(
@@ -145,17 +132,6 @@ void GZSitlPlugin::OnUpdate()
             model->GetWorld()->ModelByName(perm_target_vis_name)) {
         this->perm_target_vis->SetWorldPose(Pose3d(perm_targ_pos.y,
                     perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
-    }
-
-    // Update substitute target visualization according to vehicle
-    mavlink_vehicles::local_pos subs_targ_pos =
-        mavlink_vehicles::math::global_to_local_ned(
-            this->mav->get_detour_waypoint(),
-            this->home_position);
-    if (this->subs_target_vis =
-            model->GetWorld()->ModelByName(subs_target_vis_name)) {
-        this->subs_target_vis->SetWorldPose(Pose3d(subs_targ_pos.y,
-                    subs_targ_pos.x, -subs_targ_pos.z, 0, 0, 0));
     }
 
     // Execute according to simulation state
@@ -232,18 +208,6 @@ void GZSitlPlugin::OnUpdate()
             this->perm_target_pose_prev = this->perm_target_pose;
         }
 
-        // Send the substitute target to the vehicle
-        if (this->subs_target_pose != this->subs_target_pose_prev) {
-            mavlink_vehicles::global_pos_int global_coord =
-                mavlink_vehicles::math::local_ned_to_global(
-                    mavlink_vehicles::local_pos(this->subs_target_pose.Pos()[1],
-                                                this->subs_target_pose.Pos()[0],
-                                                -this->subs_target_pose.Pos()[2]),
-                    this->home_position);
-            this->mav->send_detour_waypoint(global_coord, true);
-            this->subs_target_pose_prev = this->subs_target_pose;
-        }
-
         break;
     }
 
@@ -268,18 +232,10 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     perm_target_name = sdf->Get<std::string>("perm_target_ctrl_name");
     perm_target_vis_name = sdf->Get<std::string>("perm_target_vis_name");
 
-    // Get name for the substitute target
-    subs_target_name = sdf->Get<std::string>("subs_target_ctrl_name");
-    subs_target_vis_name = sdf->Get<std::string>("subs_target_vis_name");
-
     // Get topic names
     if (sdf->HasElement("perm_target_topic_name")) {
         perm_target_pub_topic_name =
             sdf->Get<std::string>("perm_target_topic_name");
-    }
-    if (sdf->HasElement("subs_target_topic_name")) {
-        subs_target_sub_topic_name =
-            sdf->Get<std::string>("subs_target_topic_name");
     }
     if (sdf->HasElement("vehicle_topic_name")) {
         vehicle_pub_topic_name = sdf->Get<std::string>("vehicle_topic_name");
@@ -297,11 +253,6 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
         "~/" + this->model->GetName() + "/" + vehicle_pub_topic_name, 1,
         defaults::GZSITL_VEHICLE_POSE_PUB_FREQ_HZ);
 
-    // Setup Subscribers
-    this->subs_target_pose_sub =
-        node->Subscribe("~/" + std::string(subs_target_sub_topic_name),
-                        &GZSitlPlugin::on_subs_target_pose_recvd, this);
-
     // Set initial simulation parameters
     printf("init\n");
     simstate = INIT;
@@ -318,35 +269,5 @@ Pose3d GZSitlPlugin::calculate_pose(attitude attitude, local_pos local_position)
     return Pose3d(local_position.y, local_position.x,
                               -local_position.z, attitude.pitch, attitude.roll,
                               -attitude.yaw);
-}
-
-void GZSitlPlugin::on_subs_target_pose_recvd(ConstPosePtr &_msg)
-{
-    // Coav Target Pose has been received
-    if (_msg->has_position() && _msg->has_orientation()) {
-        this->subs_target_pose_sub_recv_time = std::chrono::system_clock::now();
-
-        std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
-        this->subs_target_pose_from_topic.Set(
-            gazebo::msgs::ConvertIgn(_msg->position()),
-            gazebo::msgs::ConvertIgn(_msg->orientation()));
-    }
-}
-
-Pose3d GZSitlPlugin::get_subs_target_pose()
-{
-    std::lock_guard<std::mutex> locker(subs_target_pose_mtx);
-    return subs_target_pose_from_topic;
-}
-
-bool GZSitlPlugin::is_target_overridden()
-{
-    using namespace std::chrono;
-
-    time_point<system_clock> curr_time = system_clock::now();
-
-    return duration_cast<milliseconds>(curr_time -
-                                       subs_target_pose_sub_recv_time)
-               .count() < defaults::GZSITL_SUBS_TARG_POSE_SUB_MAX_RESPONSE_TIME;
 }
 
