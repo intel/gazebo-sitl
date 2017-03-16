@@ -53,7 +53,7 @@ once with:
     Load the Parameters on Mavproxy Prompt:
 
     ```
-    param load ./parameters/gzsitl.parm
+    param load ${ARDUPILOTDIR}/Tools/autotest/default_params/copter.parm
     ```
 
 3. Open the Gazebo gzsitl_drone_target world file with the following command:
