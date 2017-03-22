@@ -103,13 +103,12 @@ void GZSitlPlugin::OnUpdate()
     status status = this->mav->get_status();
 
     // Get vehicle pose and update gazebo vehicle model
-    Pose3d curr_pose;
-    curr_pose = calculate_pose(this->mav->get_attitude(),
+    Pose3d vehicle_pose;
+    vehicle_pose = calculate_pose(this->mav->get_attitude(),
                                this->mav->get_local_position_ned());
-    model->SetWorldPose(curr_pose);
+    model->SetWorldPose(vehicle_pose);
 
     // Publish current gazebo vehicle pose
-    Pose3d vehicle_pose = model->WorldPose();
     this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose));
 
     // Get pointer to the permanent target control model if exists
