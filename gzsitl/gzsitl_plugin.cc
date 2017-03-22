@@ -175,6 +175,11 @@ void GZSitlPlugin::OnUpdate()
             break;
         }
 
+        // Wait until the vehicle is at least 1m off the ground
+        if (vehicle_pose.Pos()[2] < 1.0) {
+            break;
+        }
+
         print_debug_state("Takeoff Sucessfull.\n");
         simstate = ACTIVE_AIRBORNE;
         print_debug_state("state: ACTIVE_AIRBORNE\n");
