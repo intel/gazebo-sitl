@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sdf version="1.6">
-  <model name="gzsitl_perm_targ_ctrl">
+  <model name="gzsitl_mission_target">
     <link name="link">
       <pose frame="">0 0 0 0 -0 0</pose>
       <inertial>

@@ -21,7 +21,7 @@
 
 namespace defaults
 {
-const uint16_t GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ = 50;
+const uint16_t GZSITL_MISSION_TARGET_POSE_PUB_FREQ_HZ = 50;
 const uint16_t GZSITL_VEHICLE_POSE_PUB_FREQ_HZ = 50;
 }
 
@@ -107,15 +107,15 @@ void GZSitlPlugin::OnUpdate()
     // Publish current gazebo vehicle pose
     this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose));
 
-    // Get pointer to the permanent target control model if exists
-    this->perm_target = model->GetWorld()->ModelByName(perm_target_name);
-    this->perm_target_exists = (bool)this->perm_target;
+    // Get pointer to the mission target model if exists
+    this->mission_target = model->GetWorld()->ModelByName(mission_target_name);
+    this->mission_target_exists = (bool)this->mission_target;
 
-    // Retrieve and publish current permanent target pose if target exists
-    if (this->perm_target_exists) {
-        this->perm_target_pose = this->perm_target->WorldPose();
-        this->perm_target_pose_pub->Publish(
-            msgs::Convert(this->perm_target_pose));
+    // Retrieve and publish current mission target pose if it exists
+    if (this->mission_target_exists) {
+        this->mission_target_pose = this->mission_target->WorldPose();
+        this->mission_target_pose_pub->Publish(
+            msgs::Convert(this->mission_target_pose));
     }
 
     // Execute according to simulation state
@@ -185,16 +185,16 @@ void GZSitlPlugin::OnUpdate()
 
     case ACTIVE_AIRBORNE: {
 
-        // Send the permanent target to the vehicle
-        if (this->perm_target_pose != this->perm_target_pose_prev) {
+        // Send the mission target to the vehicle
+        if (this->mission_target_pose != this->mission_target_pose_prev) {
             mavlink_vehicles::global_pos_int global_coord =
                 mavlink_vehicles::math::local_ned_to_global(
-                    mavlink_vehicles::local_pos(this->perm_target_pose.Pos()[1],
-                                                this->perm_target_pose.Pos()[0],
-                                                -this->perm_target_pose.Pos()[2]),
+                    mavlink_vehicles::local_pos(this->mission_target_pose.Pos()[1],
+                                                this->mission_target_pose.Pos()[0],
+                                                -this->mission_target_pose.Pos()[2]),
                     this->home_position);
             this->mav->send_mission_waypoint(global_coord, true);
-            this->perm_target_pose_prev = this->perm_target_pose;
+            this->mission_target_pose_prev = this->mission_target_pose;
         }
 
         break;
@@ -217,13 +217,13 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     // Store the model pointer for convenience
     model = m;
 
-    // Get name for the permanent target
-    perm_target_name = sdf->Get<std::string>("perm_target_ctrl_name");
+    // Get name for the mission target
+    mission_target_name = sdf->Get<std::string>("mission_target_name");
 
     // Get topic names
-    if (sdf->HasElement("perm_target_topic_name")) {
-        perm_target_pub_topic_name =
-            sdf->Get<std::string>("perm_target_topic_name");
+    if (sdf->HasElement("mission_target_topic_name")) {
+        mission_target_pub_topic_name =
+            sdf->Get<std::string>("mission_target_topic_name");
     }
     if (sdf->HasElement("vehicle_topic_name")) {
         vehicle_pub_topic_name = sdf->Get<std::string>("vehicle_topic_name");
@@ -233,9 +233,9 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
     this->node = transport::NodePtr(new transport::Node());
     this->node->Init(this->model->GetWorld()->Name());
 
-    this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
-        "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
-        defaults::GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ);
+    this->mission_target_pose_pub = this->node->Advertise<msgs::Pose>(
+        "~/" + this->model->GetName() + "/" + mission_target_pub_topic_name, 1,
+        defaults::GZSITL_MISSION_TARGET_POSE_PUB_FREQ_HZ);
 
     this->vehicle_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + vehicle_pub_topic_name, 1,
