@@ -23,10 +23,6 @@ namespace defaults
 {
 const uint16_t GZSITL_PERM_TARG_POSE_PUB_FREQ_HZ = 50;
 const uint16_t GZSITL_VEHICLE_POSE_PUB_FREQ_HZ = 50;
-const double GZSITL_LOOKAT_TARG_ANG_LIMIT = 60.0;
-const double GZSITL_LOOKAT_ROT_ANG_THRESH_DEG = 10.0;
-const double GZSITL_LOOKAT_ROT_SPEED_DEGPS = 90.0;
-const double GZSITL_MIN_ROT_DIST_M = 0.5;
 }
 
 inline double rad2deg(double x)
