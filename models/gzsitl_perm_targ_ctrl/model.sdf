@@ -41,11 +41,6 @@
         </material>
         <cast_shadows>1</cast_shadows>
         <transparency>0.5</transparency>
-        <plugin name="gzsitl_visflags_plugin" filename="libgzsitl_visflags_plugin.so">
-          <gz_visibility_all>false</gz_visibility_all>
-          <gz_visibility_gui>true</gz_visibility_gui>
-          <gz_visibility_sel>true</gz_visibility_sel>
-        </plugin>
       </visual>
     </link>
     <static>1</static>

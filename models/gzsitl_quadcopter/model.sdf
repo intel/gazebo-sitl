@@ -8,7 +8,6 @@
     <!-- Attach the plugin to this model -->
     <plugin name="gzsitl_drone_control" filename="libgzsitl_plugin.so">
       <perm_target_ctrl_name>gzsitl_perm_targ_ctrl</perm_target_ctrl_name>
-      <perm_target_vis_name>gzsitl_perm_targ_vis</perm_target_vis_name>
       <perm_target_topic_name>target_pose</perm_target_topic_name>
       <vehicle_topic_name>vehicle_pose</vehicle_topic_name>
     </plugin>

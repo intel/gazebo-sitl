@@ -78,9 +78,7 @@ class GAZEBO_VISIBLE GZSitlPlugin : public ModelPlugin
     // Gazebo Simulation
     physics::ModelPtr model;
     std::string perm_target_name;
-    std::string perm_target_vis_name;
     physics::ModelPtr perm_target;
-    physics::ModelPtr perm_target_vis;
     event::ConnectionPtr update_connection;
 
     // Gazebo Communication

@@ -118,17 +118,6 @@ void GZSitlPlugin::OnUpdate()
             msgs::Convert(this->perm_target_pose));
     }
 
-    // Update permanent target visualization according to the vehicle
-    mavlink_vehicles::local_pos perm_targ_pos =
-        mavlink_vehicles::math::global_to_local_ned(
-            this->mav->get_mission_waypoint(),
-            this->home_position);
-    if (this->perm_target_vis =
-            model->GetWorld()->ModelByName(perm_target_vis_name)) {
-        this->perm_target_vis->SetWorldPose(Pose3d(perm_targ_pos.y,
-                    perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
-    }
-
     // Execute according to simulation state
     switch (simstate) {
     case INIT: {
@@ -230,7 +219,6 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
     // Get name for the permanent target
     perm_target_name = sdf->Get<std::string>("perm_target_ctrl_name");
-    perm_target_vis_name = sdf->Get<std::string>("perm_target_vis_name");
 
     // Get topic names
     if (sdf->HasElement("perm_target_topic_name")) {
