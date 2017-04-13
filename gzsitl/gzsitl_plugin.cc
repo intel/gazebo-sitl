@@ -137,10 +137,10 @@ void GZSitlPlugin::OnUpdate()
     switch (simstate) {
     case INIT: {
 
-        if (status == status::STANDBY) {
+        if (status == mavlink_vehicles::status::STANDBY) {
             simstate = INIT_ON_GROUND;
             print_debug_state("state: INIT_ON_GROUND\n");
-        } else if (status == status::ACTIVE) {
+        } else if (status == mavlink_vehicles::status::ACTIVE) {
             simstate = INIT_AIRBORNE;
             print_debug_state("state: INIT_AIRBORNE\n");
         }
@@ -170,7 +170,7 @@ void GZSitlPlugin::OnUpdate()
             break;
         }
 
-        if (status != status::ACTIVE) {
+        if (status != mavlink_vehicles::status::ACTIVE) {
             this->mav->takeoff();
             break;
         }
@@ -190,7 +190,7 @@ void GZSitlPlugin::OnUpdate()
     case ACTIVE_ON_GROUND: {
 
         // Wait for take off
-        if (status == status::ACTIVE) {
+        if (status == mavlink_vehicles::status::ACTIVE) {
             simstate = ACTIVE_AIRBORNE;
             print_debug_state("state: ACTIVE_AIRBORNE\n");
         }
