@@ -46,19 +46,13 @@ once with:
 1. Open a second terminal and run Ardupilot:
 
     ```
-    ${ARDUPILOTDIR}/build/sitl/bin/arducopter-quad --model x
+    ${ARDUPILOTDIR}/build/sitl/bin/arducopter --model x --defaults ${ARDUPILOTDIR}/Tools/autotest/default_params/copter.parm
     ```
 
 2. In a third terminal, run Mavproxy:
 
     ```
-    mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14556 --streamrate -1
-    ```
-
-    Load the Parameters on Mavproxy Prompt:
-
-    ```
-    param load ${ARDUPILOTDIR}/Tools/autotest/default_params/copter.parm
+    mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:15556
     ```
 
 3. Open the Gazebo gzsitl_drone_target world file with the following command:
