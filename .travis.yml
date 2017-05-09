@@ -1,0 +1,12 @@
+language: generic
+
+services: docker
+
+before_install:
+ - CONTAINER=$(docker run -it -d -v $PWD:/build ubuntu:16.04 /bin/bash)
+ - docker exec -i $CONTAINER /bin/bash -c "apt-get update -qq && apt-get install -y -qq build-essential cmake wget python2.7 python-future software-properties-common python-software-properties"
+ - docker exec -i $CONTAINER /bin/bash -c "add-apt-repository http://packages.osrfoundation.org/gazebo/ubuntu && wget --quiet http://packages.osrfoundation.org/gazebo.key -O - | apt-key add -"
+ - docker exec -i $CONTAINER /bin/bash -c "apt-get update -qq && apt-get install -y -qq libgazebo8-dev"
+
+script:  
+ - docker exec -i $CONTAINER /bin/bash -c "cd /build && mkdir build && cd build && cmake .. && make -j"
