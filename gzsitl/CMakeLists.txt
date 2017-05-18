@@ -9,10 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CUSTOM_COMPILE_FLAGS}")
 
 add_library(gzsitl_plugin SHARED gzsitl_plugin.cc)
-add_library(gzsitl_visflags_plugin SHARED gzsitl_visflags_plugin.cc)
 
 target_link_libraries(gzsitl_plugin mavlink_vehicles ${GAZEBO_libraries})
-target_link_libraries(gzsitl_visflags_plugin ${GAZEBO_libraries})
 
 install(TARGETS gzsitl_plugin DESTINATION ${GZSITL_PLUGIN_PATH})
-install(TARGETS gzsitl_visflags_plugin DESTINATION ${GZSITL_PLUGIN_PATH})

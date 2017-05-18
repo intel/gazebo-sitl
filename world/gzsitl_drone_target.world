@@ -20,9 +20,9 @@
       <pose>0 0 0 0 0 0</pose>
     </model>
     <!-- Gzsitl Target -->
-    <model name="gzsitl_perm_targ_ctrl">
+    <model name="gzsitl_mission_target">
       <include>
-        <uri>model://gzsitl_perm_targ_ctrl</uri>
+        <uri>model://gzsitl_mission_target</uri>
       </include>
       <static>true</static>
       <pose>0 0 1.5 0 0 0</pose>
