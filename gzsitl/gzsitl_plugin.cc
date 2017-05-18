@@ -115,12 +115,14 @@ void GZSitlPlugin::OnUpdate()
     this->perm_target = model->GetWorld()->ModelByName(perm_target_name);
     this->perm_target_exists = (bool)this->perm_target;
 
-    // Retrieve and publish current permanent target pose if target exists
-    if (this->perm_target_exists) {
-        this->perm_target_pose = this->perm_target->WorldPose();
-        this->perm_target_pose_pub->Publish(
-            msgs::Convert(this->perm_target_pose));
+    // Wait for mission target
+    if (!this->perm_target_exists) {
+        return;
     }
+
+    // Retrieve and publish current permanent target pose if target exists
+    this->perm_target_pose = this->perm_target->WorldPose();
+    this->perm_target_pose_pub->Publish(msgs::Convert(this->perm_target_pose));
 
     // Update permanent target visualization according to the vehicle
     mavlink_vehicles::local_pos perm_targ_pos =
