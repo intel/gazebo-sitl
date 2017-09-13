@@ -14,7 +14,7 @@ include_directories(${GAZEBO_INCLUDE_DIRS})
 link_directories(${GAZEBO_LIBRARY_DIRS})
 
 # Find ignition-math
-find_package(ignition-math3 REQUIRED)
+find_package(ignition-math2 REQUIRED)
 
 # ignition-math Include and Link directories
 include_directories(${IGNITION-MATH_INCLUDE_DIRS})

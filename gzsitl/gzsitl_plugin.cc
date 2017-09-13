@@ -112,7 +112,11 @@ void GZSitlPlugin::OnUpdate()
     this->vehicle_pose_pub->Publish(msgs::Convert(vehicle_pose));
 
     // Get pointer to the permanent target control model if exists
+# if GAZEBO_MAJOR_VERSION >= 7
+    this->perm_target = model->GetWorld()->GetModel(perm_target_name);
+# else
     this->perm_target = model->GetWorld()->ModelByName(perm_target_name);
+# endif
     this->perm_target_exists = (bool)this->perm_target;
 
     // Wait for mission target
@@ -121,8 +125,12 @@ void GZSitlPlugin::OnUpdate()
     }
 
     // Retrieve and publish current permanent target pose if target exists
-    this->perm_target_pose = this->perm_target->WorldPose();
-    this->perm_target_pose_pub->Publish(msgs::Convert(this->perm_target_pose));
+# if GAZEBO_MAJOR_VERSION >= 7
+//    this->perm_target_pose = this->perm_target->GetWorldPose();
+# else
+//    this->perm_target_pose = this->perm_target->WorldPose();
+# endif
+//    this->perm_target_pose_pub->Publish(msgs::Convert(this->perm_target_pose));
 
     // Update permanent target visualization according to the vehicle
     mavlink_vehicles::local_pos perm_targ_pos =
@@ -130,7 +138,11 @@ void GZSitlPlugin::OnUpdate()
             this->mav->get_mission_waypoint(),
             this->home_position);
     if (this->perm_target_vis =
+# if GAZEBO_MAJOR_VERSION >= 7
+            model->GetWorld()->GetModel(perm_target_vis_name)) {
+# else
             model->GetWorld()->ModelByName(perm_target_vis_name)) {
+# endif
         this->perm_target_vis->SetWorldPose(Pose3d(perm_targ_pos.y,
                     perm_targ_pos.x, -perm_targ_pos.z, 0, 0, 0));
     }
@@ -249,7 +261,11 @@ void GZSitlPlugin::Load(physics::ModelPtr m, sdf::ElementPtr sdf)
 
     // Setup Publishers
     this->node = transport::NodePtr(new transport::Node());
+# if GAZEBO_MAJOR_VERSION >= 7
+    this->node->Init(this->model->GetWorld()->GetName());
+# else
     this->node->Init(this->model->GetWorld()->Name());
+#endif
 
     this->perm_target_pose_pub = this->node->Advertise<msgs::Pose>(
         "~/" + this->model->GetName() + "/" + perm_target_pub_topic_name, 1,
